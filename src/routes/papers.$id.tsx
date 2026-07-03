@@ -76,7 +76,7 @@ function PaperDetail() {
           <div className="bg-surface border border-border rounded-2xl p-6">
             <h3 className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-3">Keywords</h3>
             <div className="flex flex-wrap gap-2">
-              {paper.keywords.map((k) => (
+              {paper.keywords.map((k: string) => (
                 <span key={k} className="px-2 py-1 bg-secondary rounded text-xs">{k}</span>
               ))}
             </div>
