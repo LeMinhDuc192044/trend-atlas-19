@@ -9,38 +9,206 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as BookmarksRouteImport } from './routes/bookmarks'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TopicsIndexRouteImport } from './routes/topics.index'
+import { Route as PapersIndexRouteImport } from './routes/papers.index'
+import { Route as JournalsIndexRouteImport } from './routes/journals.index'
+import { Route as TopicsIdRouteImport } from './routes/topics.$id'
+import { Route as PapersIdRouteImport } from './routes/papers.$id'
+import { Route as JournalsIdRouteImport } from './routes/journals.$id'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminDataSourcesRouteImport } from './routes/admin.data-sources'
 
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BookmarksRoute = BookmarksRouteImport.update({
+  id: '/bookmarks',
+  path: '/bookmarks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TopicsIndexRoute = TopicsIndexRouteImport.update({
+  id: '/topics/',
+  path: '/topics/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PapersIndexRoute = PapersIndexRouteImport.update({
+  id: '/papers/',
+  path: '/papers/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JournalsIndexRoute = JournalsIndexRouteImport.update({
+  id: '/journals/',
+  path: '/journals/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TopicsIdRoute = TopicsIdRouteImport.update({
+  id: '/topics/$id',
+  path: '/topics/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PapersIdRoute = PapersIdRouteImport.update({
+  id: '/papers/$id',
+  path: '/papers/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JournalsIdRoute = JournalsIdRouteImport.update({
+  id: '/journals/$id',
+  path: '/journals/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminDataSourcesRoute = AdminDataSourcesRouteImport.update({
+  id: '/admin/data-sources',
+  path: '/admin/data-sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/bookmarks': typeof BookmarksRoute
+  '/notifications': typeof NotificationsRoute
+  '/admin/data-sources': typeof AdminDataSourcesRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/journals/$id': typeof JournalsIdRoute
+  '/papers/$id': typeof PapersIdRoute
+  '/topics/$id': typeof TopicsIdRoute
+  '/journals/': typeof JournalsIndexRoute
+  '/papers/': typeof PapersIndexRoute
+  '/topics/': typeof TopicsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/bookmarks': typeof BookmarksRoute
+  '/notifications': typeof NotificationsRoute
+  '/admin/data-sources': typeof AdminDataSourcesRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/journals/$id': typeof JournalsIdRoute
+  '/papers/$id': typeof PapersIdRoute
+  '/topics/$id': typeof TopicsIdRoute
+  '/journals': typeof JournalsIndexRoute
+  '/papers': typeof PapersIndexRoute
+  '/topics': typeof TopicsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/bookmarks': typeof BookmarksRoute
+  '/notifications': typeof NotificationsRoute
+  '/admin/data-sources': typeof AdminDataSourcesRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/journals/$id': typeof JournalsIdRoute
+  '/papers/$id': typeof PapersIdRoute
+  '/topics/$id': typeof TopicsIdRoute
+  '/journals/': typeof JournalsIndexRoute
+  '/papers/': typeof PapersIndexRoute
+  '/topics/': typeof TopicsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/bookmarks'
+    | '/notifications'
+    | '/admin/data-sources'
+    | '/admin/users'
+    | '/journals/$id'
+    | '/papers/$id'
+    | '/topics/$id'
+    | '/journals/'
+    | '/papers/'
+    | '/topics/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/bookmarks'
+    | '/notifications'
+    | '/admin/data-sources'
+    | '/admin/users'
+    | '/journals/$id'
+    | '/papers/$id'
+    | '/topics/$id'
+    | '/journals'
+    | '/papers'
+    | '/topics'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/bookmarks'
+    | '/notifications'
+    | '/admin/data-sources'
+    | '/admin/users'
+    | '/journals/$id'
+    | '/papers/$id'
+    | '/topics/$id'
+    | '/journals/'
+    | '/papers/'
+    | '/topics/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
+  BookmarksRoute: typeof BookmarksRoute
+  NotificationsRoute: typeof NotificationsRoute
+  AdminDataSourcesRoute: typeof AdminDataSourcesRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  JournalsIdRoute: typeof JournalsIdRoute
+  PapersIdRoute: typeof PapersIdRoute
+  TopicsIdRoute: typeof TopicsIdRoute
+  JournalsIndexRoute: typeof JournalsIndexRoute
+  PapersIndexRoute: typeof PapersIndexRoute
+  TopicsIndexRoute: typeof TopicsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bookmarks': {
+      id: '/bookmarks'
+      path: '/bookmarks'
+      fullPath: '/bookmarks'
+      preLoaderRoute: typeof BookmarksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +216,78 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/topics/': {
+      id: '/topics/'
+      path: '/topics'
+      fullPath: '/topics/'
+      preLoaderRoute: typeof TopicsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/papers/': {
+      id: '/papers/'
+      path: '/papers'
+      fullPath: '/papers/'
+      preLoaderRoute: typeof PapersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journals/': {
+      id: '/journals/'
+      path: '/journals'
+      fullPath: '/journals/'
+      preLoaderRoute: typeof JournalsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/topics/$id': {
+      id: '/topics/$id'
+      path: '/topics/$id'
+      fullPath: '/topics/$id'
+      preLoaderRoute: typeof TopicsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/papers/$id': {
+      id: '/papers/$id'
+      path: '/papers/$id'
+      fullPath: '/papers/$id'
+      preLoaderRoute: typeof PapersIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/journals/$id': {
+      id: '/journals/$id'
+      path: '/journals/$id'
+      fullPath: '/journals/$id'
+      preLoaderRoute: typeof JournalsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/data-sources': {
+      id: '/admin/data-sources'
+      path: '/admin/data-sources'
+      fullPath: '/admin/data-sources'
+      preLoaderRoute: typeof AdminDataSourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
+  BookmarksRoute: BookmarksRoute,
+  NotificationsRoute: NotificationsRoute,
+  AdminDataSourcesRoute: AdminDataSourcesRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  JournalsIdRoute: JournalsIdRoute,
+  PapersIdRoute: PapersIdRoute,
+  TopicsIdRoute: TopicsIdRoute,
+  JournalsIndexRoute: JournalsIndexRoute,
+  PapersIndexRoute: PapersIndexRoute,
+  TopicsIndexRoute: TopicsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
