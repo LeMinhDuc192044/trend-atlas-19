@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -9,11 +9,21 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { ArrowUpRight, Bookmark, TrendingUp } from "lucide-react";
+import { ArrowUpRight, Bookmark, TrendingUp, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { papers, publicationTrend, topics, journals } from "@/lib/mock-data";
+import { useDashboardSummary, usePublicationsByYear } from "@/hooks/use-dashboard";
+import { usePapers } from "@/hooks/use-papers";
+import { useTopics } from "@/hooks/use-topics";
 
 export const Route = createFileRoute("/")({
+  // FIX: guard lives here, so the redirect to "/auth" is always valid.
+  // "/dashboard" did not exist as a registered route — that was the TS error.
+  beforeLoad: () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw redirect({ to: "/auth" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Dashboard — Scigraph" },
@@ -23,11 +33,27 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-function StatCard({ label, value, hint, tone = "default" }: { label: string; value: string; hint?: string; tone?: "default" | "up" | "brand" }) {
+function StatCard({
+  label,
+  value,
+  hint,
+  tone = "default",
+  loading = false,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "default" | "up" | "brand";
+  loading?: boolean;
+}) {
   return (
     <div className="bg-surface p-6 rounded-2xl border border-border shadow-sm">
       <div className="text-muted-foreground text-xs font-bold uppercase mb-1 tracking-wider">{label}</div>
-      <div className={`text-3xl font-serif ${tone === "brand" ? "text-indigo" : ""}`}>{value}</div>
+      {loading ? (
+        <Loader2 className="size-6 animate-spin text-muted-foreground mt-1" />
+      ) : (
+        <div className={`text-3xl font-serif ${tone === "brand" ? "text-indigo" : ""}`}>{value}</div>
+      )}
       {hint && (
         <div className={`text-xs font-medium mt-2 ${tone === "up" ? "text-trend-up" : "text-muted-foreground"}`}>
           {hint}
@@ -38,9 +64,15 @@ function StatCard({ label, value, hint, tone = "default" }: { label: string; val
 }
 
 function Dashboard() {
-  const recent = papers.slice(0, 3);
-  const trendingTopics = [...topics].sort((a, b) => b.growth - a.growth).slice(0, 3);
-  const followedJournals = journals.filter((j) => j.followed);
+  const { data: summary, isLoading: summaryLoading } = useDashboardSummary();
+  const { data: trendData, isLoading: trendLoading } = usePublicationsByYear();
+  const { data: papersData, isLoading: papersLoading } = usePapers({ pageNumber: 1, pageSize: 3 });
+  const { data: topicsData, isLoading: topicsLoading } = useTopics();
+
+  const recent = papersData?.items ?? [];
+  const trendingTopics = [...(topicsData ?? [])]
+    .sort((a, b) => b.papersCount - a.papersCount)
+    .slice(0, 3);
 
   return (
     <AppShell>
@@ -50,77 +82,123 @@ function Dashboard() {
           <p className="text-muted-foreground text-sm">Live signals from your indexed journals and topics.</p>
         </div>
 
+        {/* Stat cards — wired to GET /dashboard/summary */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <StatCard label="Active Topics" value="1,284" hint="↑ 12% this month" tone="up" />
-          <StatCard label="New Publications" value="42.9k" hint="Across connected APIs" />
-          <StatCard label="Emerging Field" value="Neuro-Symbolic AI" hint="High momentum" tone="brand" />
-          <StatCard label="Citations Tracked" value="2.1M" hint="Real-time sync" />
+          <StatCard
+            label="Active Topics"
+            value={summary?.totalTopics?.toLocaleString() ?? "—"}
+            hint="Total research topics"
+            loading={summaryLoading}
+          />
+          <StatCard
+            label="Total Papers"
+            value={summary?.totalPapers?.toLocaleString() ?? "—"}
+            hint="Imported from external APIs"
+            loading={summaryLoading}
+          />
+          <StatCard
+            label="Total Authors"
+            value={summary?.totalAuthors?.toLocaleString() ?? "—"}
+            loading={summaryLoading}
+          />
+          <StatCard
+            label="Citations Tracked"
+            value={summary?.totalCitations?.toLocaleString() ?? "—"}
+            hint="Across all papers"
+            loading={summaryLoading}
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="lg:col-span-2 space-y-8">
+
+            {/* Chart — wired to GET /dashboard/publications-by-year */}
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-serif font-semibold">Global Publication Trend</h2>
-                <select className="text-xs bg-transparent font-medium text-muted-foreground cursor-pointer outline-none">
-                  <option>Last 12 Months</option>
-                  <option>Last 5 Years</option>
-                </select>
               </div>
               <div className="bg-surface border border-border rounded-2xl p-6">
                 <div className="w-full h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={publicationTrend}>
-                      <defs>
-                        <linearGradient id="cs" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
-                          <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="bio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--indigo)" stopOpacity={0.25} />
-                          <stop offset="100%" stopColor="var(--indigo)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={11} />
-                      <YAxis stroke="var(--muted-foreground)" fontSize={11} />
-                      <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Area type="monotone" dataKey="cs" name="Computer Science" stroke="var(--brand)" fill="url(#cs)" strokeWidth={2} />
-                      <Area type="monotone" dataKey="bio" name="Biotechnology" stroke="var(--indigo)" fill="url(#bio)" strokeWidth={2} />
-                      <Area type="monotone" dataKey="phys" name="Physics" stroke="var(--trend-up)" fill="transparent" strokeWidth={2} />
-                      <Area type="monotone" dataKey="mat" name="Materials" stroke="var(--chart-4)" fill="transparent" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  {trendLoading ? (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      <Loader2 className="size-6 animate-spin" />
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={trendData ?? []}>
+                        <defs>
+                          <linearGradient id="cs" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="year" stroke="var(--muted-foreground)" fontSize={11} />
+                        <YAxis stroke="var(--muted-foreground)" fontSize={11} />
+                        <Tooltip
+                          contentStyle={{
+                            background: "var(--surface)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 8,
+                            fontSize: 12,
+                          }}
+                        />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Area
+                          type="monotone"
+                          dataKey="count"
+                          name="Publications"
+                          stroke="var(--brand)"
+                          fill="url(#cs)"
+                          strokeWidth={2}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
             </section>
 
+            {/* Recent papers — wired to GET /research-papers/all */}
             <section>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-serif font-semibold">Critical Research Highlights</h2>
-                <Link to="/papers" className="text-xs text-brand hover:underline">View library →</Link>
+                <h2 className="text-xl font-serif font-semibold">Recent Research Papers</h2>
+                <Link to="/papers" className="text-xs text-brand hover:underline">
+                  View library →
+                </Link>
               </div>
               <div className="space-y-4">
+                {papersLoading && (
+                  <div className="flex justify-center py-8 text-muted-foreground">
+                    <Loader2 className="size-6 animate-spin" />
+                  </div>
+                )}
                 {recent.map((p) => (
-                  <article key={p.id} className="bg-surface border border-border rounded-2xl p-6 hover:shadow-md transition-shadow">
+                  <article
+                    key={p.id}
+                    className="bg-surface border border-border rounded-2xl p-6 hover:shadow-md transition-shadow"
+                  >
                     <div className="flex justify-between items-start mb-3">
                       <span className="px-2 py-0.5 bg-accent text-indigo text-[10px] font-bold uppercase tracking-wider rounded">
                         {p.domain}
                       </span>
-                      <span className="text-xs font-mono text-muted-foreground">DOI: {p.doi}</span>
+                      {p.doi && (
+                        <span className="text-xs font-mono text-muted-foreground">DOI: {p.doi}</span>
+                      )}
                     </div>
                     <Link to="/papers/$id" params={{ id: p.id }} className="block">
                       <h3 className="text-lg font-semibold leading-snug mb-2 hover:text-brand transition-colors">
                         {p.title}
                       </h3>
                     </Link>
-                    <p className="text-muted-foreground text-sm line-clamp-2 mb-4 italic">{p.abstract}</p>
+                    {p.abstract && (
+                      <p className="text-muted-foreground text-sm line-clamp-2 mb-4 italic">{p.abstract}</p>
+                    )}
                     <div className="flex items-center justify-between">
                       <div className="flex gap-4 text-xs font-medium text-muted-foreground">
-                        <span>{p.authors.join(", ")}</span>
-                        <span>{p.year}</span>
-                        <span>{p.citations.toLocaleString()} citations</span>
+                        <span>{p.authors.map((a) => a.fullName).join(", ")}</span>
+                        <span>{p.publicationYear}</span>
+                        <span>{p.citationCount.toLocaleString()} citations</span>
                       </div>
                       <div className="flex gap-2">
                         <button className="size-8 border border-border rounded-lg grid place-items-center hover:bg-secondary transition-colors">
@@ -141,11 +219,18 @@ function Dashboard() {
             </section>
           </div>
 
-          {/* Right column */}
+          {/* Right column — wired to GET /research-topics */}
           <div className="space-y-8">
             <section>
-              <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Trending Topics</h2>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">
+                Top Topics by Papers
+              </h2>
               <div className="space-y-3">
+                {topicsLoading && (
+                  <div className="flex justify-center py-4 text-muted-foreground">
+                    <Loader2 className="size-5 animate-spin" />
+                  </div>
+                )}
                 {trendingTopics.map((t) => (
                   <Link
                     key={t.id}
@@ -155,7 +240,9 @@ function Dashboard() {
                   >
                     <div>
                       <div className="text-sm font-semibold">{t.name}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase font-mono">Growth: +{t.growth}%</div>
+                      <div className="text-[10px] text-muted-foreground uppercase font-mono">
+                        {t.papersCount} papers
+                      </div>
                     </div>
                     <TrendingUp className="size-4 text-trend-up" />
                   </Link>
@@ -167,50 +254,6 @@ function Dashboard() {
               >
                 Discover More Topics
               </Link>
-            </section>
-
-            <section className="bg-indigo rounded-2xl p-6 text-indigo-foreground">
-              <h2 className="text-lg font-serif mb-2">Weekly Insight Report</h2>
-              <p className="text-indigo-foreground/80 text-xs leading-relaxed mb-4">
-                Academic output in <strong>Reinforcement Learning</strong> has shifted from gaming environments to physical robotics control systems this quarter.
-              </p>
-              <div className="space-y-2">
-                <div className="h-1 bg-indigo-foreground/20 rounded-full overflow-hidden">
-                  <div className="h-full bg-indigo-foreground w-3/4" />
-                </div>
-                <div className="flex justify-between text-[10px] font-mono opacity-80">
-                  <span>Robotics share</span>
-                  <span>75%</span>
-                </div>
-              </div>
-              <button className="w-full mt-6 py-2 bg-indigo-foreground text-indigo text-xs font-bold rounded-lg hover:opacity-90">
-                Download PDF Analysis
-              </button>
-            </section>
-
-            <section>
-              <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Journal Activity</h2>
-              <div className="space-y-3">
-                {followedJournals.map((j) => (
-                  <Link
-                    key={j.id}
-                    to="/journals/$id"
-                    params={{ id: j.id }}
-                    className="flex items-center gap-3 p-3 bg-surface border border-border rounded-xl hover:shadow-sm transition-shadow"
-                  >
-                    <div className="size-10 rounded bg-secondary grid place-items-center font-serif text-lg">
-                      {j.name[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold truncate">{j.name}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {j.publisher} · IF {j.impactFactor}
-                      </div>
-                    </div>
-                    <ArrowUpRight className="size-4 text-muted-foreground" />
-                  </Link>
-                ))}
-              </div>
             </section>
           </div>
         </div>
