@@ -1,7 +1,10 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/app-shell";
 import { papers } from "@/lib/mock-data";
-import { Bookmark, ExternalLink, ArrowLeft } from "lucide-react";
+import { Bookmark, ExternalLink, ArrowLeft, Loader2 } from "lucide-react";
+import { apiFetch } from "@/lib/api-client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/papers/$id")({
   loader: ({ params }) => {
@@ -32,6 +35,26 @@ export const Route = createFileRoute("/papers/$id")({
 
 function PaperDetail() {
   const { paper } = Route.useLoaderData();
+  const queryClient = useQueryClient();
+
+  const bookmarkMutation = useMutation({
+    mutationFn: (paperId: string) => 
+      apiFetch("/api/bookmarks", {
+        method: "POST",
+        body: JSON.stringify({
+          type: 0, // Paper
+          researchPaperId: paperId,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+      toast.success("Paper bookmarked successfully!");
+    },
+    onError: (error) => {
+      toast.error("Failed to bookmark paper");
+      console.error(error);
+    },
+  });
   return (
     <AppShell>
       <div className="p-8 max-w-4xl mx-auto">
@@ -62,8 +85,20 @@ function PaperDetail() {
           <a href={paper.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90">
             View source <ExternalLink className="size-3.5" />
           </a>
-          <button className="inline-flex items-center gap-2 px-4 py-2 border border-border text-sm font-medium rounded-lg hover:bg-secondary">
-            <Bookmark className="size-3.5" /> Bookmark
+          <button 
+            onClick={() => bookmarkMutation.mutate(paper.id)}
+            disabled={bookmarkMutation.isPending}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-border text-sm font-medium rounded-lg hover:bg-secondary disabled:opacity-50"
+          >
+            {bookmarkMutation.isPending ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" /> Saving...
+              </>
+            ) : (
+              <>
+                <Bookmark className="size-3.5" /> Bookmark
+              </>
+            )}
           </button>
         </div>
 

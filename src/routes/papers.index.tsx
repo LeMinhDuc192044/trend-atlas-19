@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Bookmark, Filter } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Bookmark, Filter, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { papers, journals } from "@/lib/mock-data";
+import { apiFetch } from "@/lib/api-client";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/papers/")({
   head: () => ({
@@ -19,6 +22,26 @@ function PapersList() {
   const [domain, setDomain] = useState("all");
   const [journal, setJournal] = useState("all");
   const [year, setYear] = useState("all");
+  const queryClient = useQueryClient();
+
+  const bookmarkMutation = useMutation({
+    mutationFn: (paperId: string) => 
+      apiFetch("/api/bookmarks", {
+        method: "POST",
+        body: JSON.stringify({
+          type: 0, // Paper
+          researchPaperId: paperId,
+        }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+      toast.success("Paper bookmarked successfully!");
+    },
+    onError: (error) => {
+      toast.error("Failed to bookmark paper");
+      console.error(error);
+    },
+  });
 
   const filtered = useMemo(() => {
     return papers.filter((p) => {
@@ -91,8 +114,17 @@ function PapersList() {
                   <span>{p.citations.toLocaleString()} citations</span>
                 </div>
                 <div className="flex gap-2">
-                  <button className="size-8 border border-border rounded-lg grid place-items-center hover:bg-secondary">
-                    <Bookmark className="size-3.5" />
+                  <button 
+                    onClick={() => bookmarkMutation.mutate(p.id)}
+                    disabled={bookmarkMutation.isPending && bookmarkMutation.variables === p.id}
+                    className="size-8 border border-border rounded-lg grid place-items-center hover:bg-secondary disabled:opacity-50"
+                    title="Save bookmark"
+                  >
+                    {bookmarkMutation.isPending && bookmarkMutation.variables === p.id ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Bookmark className="size-3.5" />
+                    )}
                   </button>
                   <Link to="/papers/$id" params={{ id: p.id }} className="px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:opacity-90">
                     View
