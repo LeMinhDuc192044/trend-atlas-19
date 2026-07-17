@@ -7,11 +7,14 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
 } from "recharts";
-import { ArrowUpRight, Bookmark, TrendingUp } from "lucide-react";
+import { ArrowUpRight, Bookmark, TrendingUp, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { papers, publicationTrend, topics, journals } from "@/lib/mock-data";
+import { papers, topics, journals } from "@/lib/mock-data";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
+import { ApiResponse, AnalyticalReportDto } from "@/lib/types";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -42,6 +45,34 @@ function Dashboard() {
   const trendingTopics = [...topics].sort((a, b) => b.growth - a.growth).slice(0, 3);
   const followedJournals = journals.filter((j) => j.followed);
 
+  const { data: response, isLoading } = useQuery<ApiResponse<AnalyticalReportDto>>({
+    queryKey: ["report-summary"],
+    queryFn: () => apiFetch("/api/reports/summary"),
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: () => 
+      apiFetch("/api/reports/generate", {
+        method: "POST",
+        body: JSON.stringify({ title: "Weekly Insight Report" }),
+      }),
+    onSuccess: () => {
+      toast.success("Analytical report generated successfully!");
+    },
+    onError: (error) => {
+      toast.error("Failed to generate report");
+      console.error(error);
+    },
+  });
+
+  const summary = response?.data;
+  
+  // Format chart data from API
+  const chartData = summary?.publicationsByYear?.map(y => ({
+    year: y.year.toString(),
+    publications: y.count
+  })) || [];
+
   return (
     <AppShell>
       <div className="p-8 max-w-7xl mx-auto w-full">
@@ -51,10 +82,10 @@ function Dashboard() {
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <StatCard label="Active Topics" value="1,284" hint="↑ 12% this month" tone="up" />
-          <StatCard label="New Publications" value="42.9k" hint="Across connected APIs" />
-          <StatCard label="Emerging Field" value="Neuro-Symbolic AI" hint="High momentum" tone="brand" />
-          <StatCard label="Citations Tracked" value="2.1M" hint="Real-time sync" />
+          <StatCard label="Active Topics" value={summary?.topKeywords?.length?.toString() || "..."} hint="From indexed data" tone="up" />
+          <StatCard label="New Publications" value={summary?.totalPapersCount?.toLocaleString() || "..."} hint="Across connected APIs" />
+          <StatCard label="Top Domain" value={summary?.topResearchDomains?.[0]?.domain || "..."} hint="High momentum" tone="brand" />
+          <StatCard label="Citations Tracked" value={summary?.mostCitedPapers?.reduce((acc, p) => acc + p.citationCount, 0).toLocaleString() || "..."} hint="Real-time sync" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -70,27 +101,25 @@ function Dashboard() {
               <div className="bg-surface border border-border rounded-2xl p-6">
                 <div className="w-full h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={publicationTrend}>
-                      <defs>
-                        <linearGradient id="cs" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
-                          <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
-                        </linearGradient>
-                        <linearGradient id="bio" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--indigo)" stopOpacity={0.25} />
-                          <stop offset="100%" stopColor="var(--indigo)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={11} />
-                      <YAxis stroke="var(--muted-foreground)" fontSize={11} />
-                      <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Area type="monotone" dataKey="cs" name="Computer Science" stroke="var(--brand)" fill="url(#cs)" strokeWidth={2} />
-                      <Area type="monotone" dataKey="bio" name="Biotechnology" stroke="var(--indigo)" fill="url(#bio)" strokeWidth={2} />
-                      <Area type="monotone" dataKey="phys" name="Physics" stroke="var(--trend-up)" fill="transparent" strokeWidth={2} />
-                      <Area type="monotone" dataKey="mat" name="Materials" stroke="var(--chart-4)" fill="transparent" strokeWidth={2} />
-                    </AreaChart>
+                    {isLoading ? (
+                       <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                         <Loader2 className="size-6 animate-spin" />
+                       </div>
+                    ) : (
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="pubColor" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="year" stroke="var(--muted-foreground)" fontSize={11} />
+                        <YAxis stroke="var(--muted-foreground)" fontSize={11} />
+                        <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                        <Area type="monotone" dataKey="publications" name="Publications" stroke="var(--brand)" fill="url(#pubColor)" strokeWidth={2} />
+                      </AreaChart>
+                    )}
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -172,19 +201,27 @@ function Dashboard() {
             <section className="bg-indigo rounded-2xl p-6 text-indigo-foreground">
               <h2 className="text-lg font-serif mb-2">Weekly Insight Report</h2>
               <p className="text-indigo-foreground/80 text-xs leading-relaxed mb-4">
-                Academic output in <strong>Reinforcement Learning</strong> has shifted from gaming environments to physical robotics control systems this quarter.
+                {summary?.description || "Loading insights..."}
               </p>
               <div className="space-y-2">
                 <div className="h-1 bg-indigo-foreground/20 rounded-full overflow-hidden">
                   <div className="h-full bg-indigo-foreground w-3/4" />
                 </div>
                 <div className="flex justify-between text-[10px] font-mono opacity-80">
-                  <span>Robotics share</span>
+                  <span>Insight Confidence</span>
                   <span>75%</span>
                 </div>
               </div>
-              <button className="w-full mt-6 py-2 bg-indigo-foreground text-indigo text-xs font-bold rounded-lg hover:opacity-90">
-                Download PDF Analysis
+              <button 
+                onClick={() => generateMutation.mutate()}
+                disabled={generateMutation.isPending}
+                className="w-full mt-6 py-2 bg-indigo-foreground text-indigo text-xs font-bold rounded-lg hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {generateMutation.isPending ? (
+                  <><Loader2 className="size-3.5 animate-spin" /> Generating...</>
+                ) : (
+                  "Generate Report"
+                )}
               </button>
             </section>
 
