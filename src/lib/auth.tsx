@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { apiFetch, decodeJwt, getToken, setToken } from "./api-client";
+import { decodeJwt, getToken, setToken } from "./api-client";
+import { login as loginApi, register as registerApi } from "@/api/authApi";
+
 
 // Backend role enum: Admin=0, User=1, Researcher=2
 export const Role = {
@@ -71,34 +73,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     token,
     loading,
     async login(email, password) {
-      setLoading(true);
-      try {
-        // Adjust endpoint/shape to match your API. Common shapes handled below.
-        const res = await apiFetch<{ token?: string; accessToken?: string; jwt?: string }>(
-          "/api/auth/login",
-          { method: "POST", body: JSON.stringify({ email, password }) },
-        );
-        const t = res.token ?? res.accessToken ?? res.jwt;
-        if (!t) throw new Error("Login response did not include a token");
-        setToken(t);
-        setTokenState(t);
-        setUser(userFromToken(t));
+    setLoading(true);
+
+    try {
+          const res = await loginApi({
+              email,
+              password,
+          });
+
+          console.log("LOGIN RESPONSE");
+          console.log(res);
+
+          const token =
+              res.token ??
+              res.accessToken ??
+              res.jwt;
+
+          if (!token)
+              throw new Error("Login response did not include a token");
+
+          setToken(token);
+          setTokenState(token);
+          setUser(userFromToken(token));
       } finally {
-        setLoading(false);
+          setLoading(false);
       }
     },
     async register(name, email, password) {
-      setLoading(true);
-      try {
-        await apiFetch("/api/auth/register", {
-          method: "POST",
-          body: JSON.stringify({ name, email, password }),
+    setLoading(true);
+
+    try {
+        await registerApi({
+            fullName: name,
+            email,
+            password,
         });
+
         await this.login(email, password);
       } finally {
-        setLoading(false);
+          setLoading(false);
       }
-    },
+   },
     logout() {
       setToken(null);
       setTokenState(null);

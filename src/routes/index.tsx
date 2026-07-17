@@ -19,7 +19,10 @@ export const Route = createFileRoute("/")({
   // FIX: guard lives here, so the redirect to "/auth" is always valid.
   // "/dashboard" did not exist as a registered route — that was the TS error.
   beforeLoad: () => {
-    const token = localStorage.getItem("token");
+    const token =
+      typeof window !== "undefined"
+          ? localStorage.getItem("token")
+          : null;
     if (!token) {
       throw redirect({ to: "/auth" });
     }
