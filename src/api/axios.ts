@@ -3,9 +3,11 @@ import axios, {
     AxiosInstance,
     InternalAxiosRequestConfig
 } from "axios";
+import { API_BASE_URL } from "@/shared/config/env";
+import { getAccessToken, clearAuthTokens } from "@/shared/auth/token-storage";
 
 const api = axios.create({
-    baseURL: "https://localhost:5220/api",
+    baseURL: `${API_BASE_URL}/api`,
     headers: {
         "Content-Type": "application/json",
     },
@@ -15,10 +17,7 @@ const api = axios.create({
 api.interceptors.request.use(
     (config) => {
 
-        const token =
-            typeof window !== "undefined"
-                ? localStorage.getItem("token")
-                : null;
+        const token = getAccessToken();
 
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -35,7 +34,7 @@ api.interceptors.response.use(
     (error: AxiosError) => {
 
         if (error.response?.status === 401) {
-            localStorage.removeItem("token");
+            clearAuthTokens();
             window.location.href = "/auth";
         }
 
