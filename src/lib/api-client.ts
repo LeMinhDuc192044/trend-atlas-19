@@ -1,10 +1,13 @@
 // Simple JWT-authenticated fetch client for the .NET backend.
 // Configure the base URL via VITE_API_BASE_URL (see .env).
 
+import { handleMockApi } from "./mock-api";
+
 export const API_BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:5220";
 
 const TOKEN_KEY = "scigraph.jwt";
+const USE_MOCK_API = false; // Toggle this to false to use real backend API
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -31,6 +34,13 @@ export async function apiFetch<T = unknown>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  if (USE_MOCK_API) {
+    const mockRes = await handleMockApi(path);
+    if (mockRes !== null) {
+      return mockRes as T;
+    }
+  }
+
   const headers = new Headers(init.headers);
   if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
