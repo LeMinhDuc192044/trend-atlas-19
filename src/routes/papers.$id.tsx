@@ -1,97 +1,137 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Bookmark, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { papers } from "@/lib/mock-data";
-import { Bookmark, ExternalLink, ArrowLeft } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { bookmarkService, paperService } from "@/api/services";
+import { domainLabel } from "@/api/types";
+import { useAuth } from "@/lib/auth";
 
-export const Route = createFileRoute("/papers/$id")({
-  loader: ({ params }) => {
-    const paper = papers.find((p) => p.id === params.id);
-    if (!paper) throw notFound();
-    return { paper };
-  },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-          { title: `${loaderData.paper.title} — Scigraph` },
-          { name: "description", content: loaderData.paper.abstract.slice(0, 155) },
-        ]
-      : [{ title: "Paper — Scigraph" }],
-  }),
-  component: PaperDetail,
-  notFoundComponent: () => (
-    <AppShell>
-      <div className="p-12 text-center text-muted-foreground">Paper not found.</div>
-    </AppShell>
-  ),
-  errorComponent: () => (
-    <AppShell>
-      <div className="p-12 text-center text-muted-foreground">Failed to load paper.</div>
-    </AppShell>
-  ),
-});
+export const Route = createFileRoute("/papers/$id")({ component: PaperDetail });
 
 function PaperDetail() {
-  const { paper } = Route.useLoaderData();
+  const { id } = Route.useParams();
+  const { user } = useAuth();
+  const paper = useQuery({
+    queryKey: ["paper", id],
+    queryFn: () => paperService.detail(id),
+    retry: false,
+  });
+  const bookmark = useMutation({
+    mutationFn: () => bookmarkService.createPaper(id),
+    onSuccess: () => toast.success("Paper saved"),
+    onError: (error) => toast.error(error.message),
+  });
+
   return (
     <AppShell>
-      <div className="p-8 max-w-4xl mx-auto">
-        <Link to="/papers" className="inline-flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground mb-6">
-          <ArrowLeft className="size-3.5" /> Back to library
-        </Link>
-
-        <div className="flex gap-2 mb-4">
-          <span className="px-2 py-0.5 bg-accent text-indigo text-[10px] font-bold uppercase tracking-wider rounded">{paper.domain}</span>
-          {paper.fullText && <span className="px-2 py-0.5 bg-trend-up/10 text-trend-up text-[10px] font-bold uppercase tracking-wider rounded">Full text</span>}
-        </div>
-
-        <h1 className="font-serif text-4xl leading-tight mb-4 text-balance">{paper.title}</h1>
-
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-8">
-          <span>{paper.authors.join(", ")}</span>
-          <span>·</span>
-          <Link to="/journals/$id" params={{ id: paper.journalId }} className="hover:text-brand">
-            {paper.journalName}
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-5 md:p-8">
+        <Button asChild variant="ghost" className="w-fit">
+          <Link to="/papers">
+            <ArrowLeft data-icon="inline-start" /> Back to library
           </Link>
-          <span>·</span>
-          <span>{paper.year}</span>
-          <span>·</span>
-          <span>{paper.citations.toLocaleString()} citations</span>
-        </div>
-
-        <div className="flex gap-2 mb-8">
-          <a href={paper.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90">
-            View source <ExternalLink className="size-3.5" />
-          </a>
-          <button className="inline-flex items-center gap-2 px-4 py-2 border border-border text-sm font-medium rounded-lg hover:bg-secondary">
-            <Bookmark className="size-3.5" /> Bookmark
-          </button>
-        </div>
-
-        <section className="bg-surface border border-border rounded-2xl p-8 mb-6">
-          <h2 className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-3">Abstract</h2>
-          <p className="text-base leading-relaxed text-foreground/90">{paper.abstract}</p>
-        </section>
-
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-surface border border-border rounded-2xl p-6">
-            <h3 className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-3">Keywords</h3>
-            <div className="flex flex-wrap gap-2">
-              {paper.keywords.map((k: string) => (
-                <span key={k} className="px-2 py-1 bg-secondary rounded text-xs">{k}</span>
-              ))}
+        </Button>
+        {paper.isLoading ? (
+          <>
+            <Skeleton className="h-10 w-3/4" />
+            <Skeleton className="h-6 w-1/2" />
+            <Skeleton className="h-64" />
+          </>
+        ) : paper.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Paper unavailable</AlertTitle>
+            <AlertDescription>
+              {paper.error.message}. This detail endpoint requires an authenticated User,
+              Researcher, or Admin account.
+            </AlertDescription>
+          </Alert>
+        ) : paper.data ? (
+          <>
+            <div>
+              <p className="mb-3 text-xs font-bold uppercase tracking-widest text-indigo">
+                {domainLabel(paper.data.domain)}
+              </p>
+              <h1 className="text-balance font-serif text-4xl leading-tight">{paper.data.title}</h1>
+              <p className="mt-4 text-sm text-muted-foreground">
+                {paper.data.authors.map((author) => author.fullName).join(", ") ||
+                  "Unknown authors"}{" "}
+                · {paper.data.journal?.title || "Unlisted journal"} · {paper.data.publicationYear} ·{" "}
+                {paper.data.citationCount.toLocaleString()} citations
+              </p>
             </div>
-          </div>
-          <div className="bg-surface border border-border rounded-2xl p-6">
-            <h3 className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-3">Metadata</h3>
-            <dl className="text-sm space-y-1 font-mono">
-              <div className="flex justify-between"><dt className="text-muted-foreground">DOI</dt><dd>{paper.doi}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Year</dt><dd>{paper.year}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Citations</dt><dd>{paper.citations.toLocaleString()}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Full text</dt><dd>{paper.fullText ? "Yes" : "No"}</dd></div>
-            </dl>
-          </div>
-        </section>
+            <div className="flex flex-wrap gap-2">
+              {paper.data.url ? (
+                <Button asChild>
+                  <a href={paper.data.url} target="_blank" rel="noreferrer">
+                    View source <ExternalLink data-icon="inline-end" />
+                  </a>
+                </Button>
+              ) : null}
+              <Button
+                variant="outline"
+                disabled={bookmark.isPending}
+                onClick={() =>
+                  user ? bookmark.mutate() : toast.error("Sign in to save bookmarks")
+                }
+              >
+                <Bookmark data-icon="inline-start" /> Save paper
+              </Button>
+            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="font-serif text-xl">Abstract</CardTitle>
+              </CardHeader>
+              <CardContent className="leading-relaxed text-foreground/90">
+                {paper.data.abstract || "No abstract is available for this paper."}
+              </CardContent>
+            </Card>
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm uppercase tracking-widest">Keywords</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-wrap gap-2">
+                  {paper.data.keywords.length ? (
+                    paper.data.keywords.map((keyword) => (
+                      <span key={keyword} className="rounded-md bg-secondary px-2 py-1 text-xs">
+                        {keyword}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No keywords</span>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm uppercase tracking-widest">Metadata</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <dl className="flex flex-col gap-2 text-sm">
+                    <Row label="DOI" value={paper.data.doi || "—"} />
+                    <Row label="Source" value={paper.data.apiSource} />
+                    <Row label="Year" value={String(paper.data.publicationYear)} />
+                    <Row label="Topics" value={paper.data.topics.join(", ") || "—"} />
+                  </dl>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        ) : null}
       </div>
     </AppShell>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-border pb-2 last:border-0">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="break-all text-right font-mono text-xs">{value}</dd>
+    </div>
   );
 }

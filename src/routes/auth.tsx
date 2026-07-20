@@ -19,7 +19,7 @@ function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const { login, register, loading, user, logout } = useAuth();
+  const { login, register, loading, authLoading, user, logout } = useAuth();
   const navigate = useNavigate();
 
   async function onSubmit(e: FormEvent) {
@@ -51,61 +51,112 @@ function Auth() {
             Search papers, follow journals, and watch topics rise across every academic domain.
           </p>
         </div>
-        <div className="text-xs font-mono text-primary-foreground/50">© {new Date().getFullYear()} Scigraph Research</div>
+        <div className="text-xs font-mono text-primary-foreground/50">
+          © {new Date().getFullYear()} Scigraph Research
+        </div>
       </div>
 
       <div className="flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          {user ? (
+          {authLoading ? (
+            <p className="text-sm text-muted-foreground">Checking your session…</p>
+          ) : user ? (
             <div className="space-y-4">
               <h2 className="font-serif text-3xl">Signed in</h2>
               <p className="text-sm text-muted-foreground">
                 {user.email ?? user.name ?? "Authenticated"}
               </p>
               <div className="flex gap-2">
-                <Link to="/" className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm">Go to dashboard</Link>
-                <button onClick={logout} className="px-4 py-2 border border-border rounded-lg text-sm">Sign out</button>
+                <Link
+                  to="/"
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
+                >
+                  Go to dashboard
+                </Link>
+                <button
+                  onClick={logout}
+                  className="px-4 py-2 border border-border rounded-lg text-sm"
+                >
+                  Sign out
+                </button>
               </div>
             </div>
           ) : (
             <>
-              <h2 className="font-serif text-3xl mb-2">{mode === "signin" ? "Welcome back" : "Create an account"}</h2>
+              <h2 className="font-serif text-3xl mb-2">
+                {mode === "signin" ? "Welcome back" : "Create an account"}
+              </h2>
               <p className="text-sm text-muted-foreground mb-8">
-                {mode === "signin" ? "Sign in to continue tracking research." : "Start tracking trends in seconds."}
+                {mode === "signin"
+                  ? "Sign in to continue tracking research."
+                  : "Start tracking trends in seconds."}
               </p>
 
               <form className="space-y-4" onSubmit={onSubmit}>
                 {mode === "signup" && (
                   <div>
-                    <label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Full name</label>
-                    <input value={name} onChange={(e) => setName(e.target.value)} required className="mt-1 w-full px-3 py-2 bg-secondary rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand/30" />
+                    <label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
+                      Full name
+                    </label>
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      className="mt-1 w-full px-3 py-2 bg-secondary rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand/30"
+                    />
                   </div>
                 )}
                 <div>
-                  <label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Email</label>
-                  <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full px-3 py-2 bg-secondary rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand/30" />
+                  <label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="mt-1 w-full px-3 py-2 bg-secondary rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand/30"
+                  />
                 </div>
                 <div>
-                  <label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">Password</label>
-                  <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full px-3 py-2 bg-secondary rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand/30" />
+                  <label className="text-xs uppercase tracking-widest font-bold text-muted-foreground">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="mt-1 w-full px-3 py-2 bg-secondary rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand/30"
+                  />
                 </div>
 
                 {error && <p className="text-sm text-red-500">{error}</p>}
 
-                <button disabled={loading} type="submit" className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50">
+                <button
+                  disabled={loading}
+                  type="submit"
+                  className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
                   {loading ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
                 </button>
               </form>
 
               <p className="mt-6 text-sm text-muted-foreground text-center">
                 {mode === "signin" ? "New here?" : "Already have an account?"}{" "}
-                <button className="text-brand font-medium hover:underline" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
+                <button
+                  className="text-brand font-medium hover:underline"
+                  onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+                >
                   {mode === "signin" ? "Create account" : "Sign in"}
                 </button>
               </p>
 
               <div className="mt-8 text-center">
-                <Link to="/" className="text-xs uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground">
+                <Link
+                  to="/"
+                  className="text-xs uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground"
+                >
                   Continue as guest →
                 </Link>
               </div>
