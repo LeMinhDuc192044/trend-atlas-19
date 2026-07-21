@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   BookOpen,
@@ -15,17 +15,6 @@ import { ThemeToggle } from "@/features/theme/ui/theme-toggle";
 import { Logo } from "@/shared/ui/logo";
 
 export const Route = createFileRoute("/")({
-  // FIX: guard lives here, so the redirect to "/auth" is always valid.
-  // "/dashboard" did not exist as a registered route — that was the TS error.
-  beforeLoad: () => {
-    const token =
-      typeof window !== "undefined"
-          ? localStorage.getItem("token")
-          : null;
-    if (!token) {
-      throw redirect({ to: "/auth" });
-    }
-  },
   head: () => ({
     meta: [
       { title: "Scigraph - Scientific Publication Trend Tracking" },

@@ -59,7 +59,10 @@ function PapersList() {
     pageNumber: page,
     pageSize,
   });
-  const { data: journals = [] } = useJournals();
+  const { data: journalsResponse } = useJournals();
+  const journals: Array<{ title?: string | null }> = Array.isArray(journalsResponse)
+    ? journalsResponse
+    : (journalsResponse as any)?.items ?? [];
   const { data: bookmarksData } = useBookmarks();
   const addBookmark = useAddBookmark();
   const removeBookmark = useRemoveBookmark();
