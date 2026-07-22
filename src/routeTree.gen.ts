@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as FollowingRouteImport } from './routes/following'
 import { Route as ImportRouteImport } from './routes/import'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as BookmarksRouteImport } from './routes/bookmarks'
@@ -29,6 +30,9 @@ const NotificationsRoute = NotificationsRouteImport.update({
   path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FollowingRoute = FollowingRouteImport.update({
+  id: '/following',
+  path: '/following',
 const ImportRoute = ImportRouteImport.update({
   id: '/import',
   path: '/import',
@@ -99,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bookmarks': typeof BookmarksRoute
+  '/following': typeof FollowingRoute
   '/dashboard': typeof DashboardRoute
   '/import': typeof ImportRoute
   '/notifications': typeof NotificationsRoute
@@ -115,6 +120,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bookmarks': typeof BookmarksRoute
+  '/following': typeof FollowingRoute
   '/dashboard': typeof DashboardRoute
   '/import': typeof ImportRoute
   '/notifications': typeof NotificationsRoute
@@ -132,6 +138,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bookmarks': typeof BookmarksRoute
+  '/following': typeof FollowingRoute
   '/dashboard': typeof DashboardRoute
   '/import': typeof ImportRoute
   '/notifications': typeof NotificationsRoute
@@ -150,6 +157,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/bookmarks'
+    | '/following'
     | '/dashboard'
     | '/import'
     | '/notifications'
@@ -166,6 +174,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/bookmarks'
+    | '/following'
     | '/dashboard'
     | '/import'
     | '/notifications'
@@ -182,6 +191,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/bookmarks'
+    | '/following'
     | '/dashboard'
     | '/import'
     | '/notifications'
@@ -199,6 +209,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   BookmarksRoute: typeof BookmarksRoute
+  FollowingRoute: typeof FollowingRoute
   DashboardRoute: typeof DashboardRoute
   ImportRoute: typeof ImportRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -221,6 +232,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/following': {
+      id: '/following'
+      path: '/following'
+      fullPath: '/following'
+      preLoaderRoute: typeof FollowingRouteImport
     '/import': {
       id: '/import'
       path: '/import'
@@ -319,6 +335,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   BookmarksRoute: BookmarksRoute,
+  FollowingRoute: FollowingRoute,
   DashboardRoute: DashboardRoute,
   ImportRoute: ImportRoute,
   NotificationsRoute: NotificationsRoute,
