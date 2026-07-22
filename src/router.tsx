@@ -3,15 +3,6 @@ import { routeTree } from "./routeTree.gen";
 import { createAppQueryClient } from "./shared/lib/query-client";
 
 export const getRouter = () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: {
-        retry: 1,
-        staleTime: 30_000,
-        refetchOnWindowFocus: false,
-      },
-    },
-  });
   const queryClient = createAppQueryClient();
 
   const router = createRouter({
