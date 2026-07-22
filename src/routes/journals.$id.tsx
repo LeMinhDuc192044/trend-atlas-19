@@ -1,80 +1,91 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { journals, papers, topicTrend } from "@/lib/mock-data";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { journalService, paperService } from "@/api/services";
+import { FollowButton } from "@/components/follow-button";
 
-export const Route = createFileRoute("/journals/$id")({
-  loader: ({ params }) => {
-    const journal = journals.find((j) => j.id === params.id);
-    if (!journal) throw notFound();
-    return { journal };
-  },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-          { title: `${loaderData.journal.name} — Scigraph` },
-          { name: "description", content: `Papers, activity and trend for ${loaderData.journal.name}.` },
-        ]
-      : [{ title: "Journal — Scigraph" }],
-  }),
-  component: JournalDetail,
-  notFoundComponent: () => <AppShell><div className="p-12 text-center text-muted-foreground">Journal not found.</div></AppShell>,
-  errorComponent: () => <AppShell><div className="p-12 text-center text-muted-foreground">Failed to load journal.</div></AppShell>,
-});
+export const Route = createFileRoute("/journals/$id")({ component: JournalDetail });
 
 function JournalDetail() {
-  const { journal } = Route.useLoaderData();
-  const journalPapers = papers.filter((p) => p.journalId === journal.id);
-  const trend = topicTrend(30);
-
+  const { id } = Route.useParams();
+  const journal = useQuery({
+    queryKey: ["journal", id],
+    queryFn: async () =>
+      (await journalService.list("", 1, 100)).items.find((item) => item.id === id),
+  });
+  const papers = useQuery({
+    queryKey: ["journal", id, "papers", journal.data?.title],
+    queryFn: () => paperService.list({ journalName: journal.data?.title, pageSize: 20 }),
+    enabled: Boolean(journal.data?.title),
+  });
   return (
     <AppShell>
-      <div className="p-8 max-w-6xl mx-auto">
-        <Link to="/journals" className="inline-flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground mb-6">
-          <ArrowLeft className="size-3.5" /> All journals
-        </Link>
-
-        <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-5 md:p-8">
+        <Button asChild variant="ghost" className="w-fit">
+          <Link to="/journals">
+            <ArrowLeft data-icon="inline-start" /> All journals
+          </Link>
+        </Button>
+        {journal.isLoading ? (
+          <Skeleton className="h-36" />
+        ) : journal.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Journal unavailable</AlertTitle>
+            <AlertDescription>{journal.error.message}</AlertDescription>
+          </Alert>
+        ) : journal.data ? (
           <div>
-            <div className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2">{journal.publisher}</div>
-            <h1 className="font-serif text-4xl mb-2">{journal.name}</h1>
-            <div className="flex gap-4 text-sm text-muted-foreground font-mono">
-              <span>Domain: {journal.domain}</span>
-              <span>· Papers: {journal.papersCount.toLocaleString()}</span>
-              <span>· IF: {journal.impactFactor}</span>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              {journal.data.publisher || "Scientific journal"}
+            </p>
+            <h1 className="mt-2 font-serif text-4xl">{journal.data.title}</h1>
+            <p className="mt-3 font-mono text-sm text-muted-foreground">
+              ISSN {journal.data.issn || "—"} · {journal.data.totalPapersPublished.toLocaleString()}{" "}
+              indexed papers
+            </p>
+            <div className="mt-5">
+              <FollowButton targetType="Journal" targetId={journal.data.id} />
             </div>
           </div>
-          <button className={`px-4 py-2 text-sm font-medium rounded-lg border ${journal.followed ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-secondary"}`}>
-            {journal.followed ? "Following" : "Follow journal"}
-          </button>
-        </div>
-
-        <section className="bg-surface border border-border rounded-2xl p-6 mb-8">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Publication Cadence</h2>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={11} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} />
-                <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-                <Line type="monotone" dataKey="value" stroke="var(--brand)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+        ) : (
+          <Alert>
+            <AlertTitle>Journal not found</AlertTitle>
+            <AlertDescription>The requested journal is no longer available.</AlertDescription>
+          </Alert>
+        )}
+        <section>
+          <h2 className="mb-4 font-serif text-2xl">Indexed publications</h2>
+          <div className="flex flex-col gap-3">
+            {papers.isLoading ? (
+              Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-28" />)
+            ) : papers.data?.items.length ? (
+              papers.data.items.map((paper) => (
+                <Card key={paper.id}>
+                  <CardHeader>
+                    <CardTitle className="text-base leading-snug">
+                      <Link to="/papers/$id" params={{ id: paper.id }} className="hover:text-brand">
+                        {paper.title}
+                      </Link>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-xs text-muted-foreground">
+                    {paper.authors.map((author) => author.fullName).join(", ")} ·{" "}
+                    {paper.publicationYear} · {paper.citationCount.toLocaleString()} citations
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No publications found for this journal.
+              </p>
+            )}
           </div>
         </section>
-
-        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Recent Publications</h2>
-        <div className="space-y-3">
-          {journalPapers.length === 0 && <div className="text-muted-foreground text-sm">No papers indexed yet.</div>}
-          {journalPapers.map((p) => (
-            <Link key={p.id} to="/papers/$id" params={{ id: p.id }} className="block bg-surface border border-border rounded-xl p-4 hover:shadow-sm transition-shadow">
-              <h3 className="font-semibold text-base mb-1 hover:text-brand">{p.title}</h3>
-              <div className="text-xs text-muted-foreground">{p.authors.join(", ")} · {p.year} · {p.citations} citations</div>
-            </Link>
-          ))}
-        </div>
       </div>
     </AppShell>
   );

@@ -1,142 +1,216 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bookmark, Filter, Loader2 } from "lucide-react";
-import { AppShell } from "@/components/app-shell";
-import { papers, journals } from "@/lib/mock-data";
-import { apiFetch } from "@/lib/api-client";
+import { useDeferredValue, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bookmark, ChevronLeft, ChevronRight, Filter, Search } from "lucide-react";
 import { toast } from "sonner";
+import { AppShell } from "@/components/app-shell";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { bookmarkService, journalService, paperService } from "@/api/services";
+import { domainLabel } from "@/api/types";
+import { useAuth } from "@/lib/auth";
+import { z } from "zod";
 
 export const Route = createFileRoute("/papers/")({
-  head: () => ({
-    meta: [
-      { title: "Research Library — Scigraph" },
-      { name: "description", content: "Search and filter research papers by keyword, author, journal, year, and domain." },
-    ],
-  }),
+  validateSearch: z.object({ query: z.string().optional().catch(undefined) }),
+  head: () => ({ meta: [{ title: "Research Library — Scigraph" }] }),
   component: PapersList,
 });
 
 function PapersList() {
-  const [q, setQ] = useState("");
-  const [domain, setDomain] = useState("all");
-  const [journal, setJournal] = useState("all");
-  const [year, setYear] = useState("all");
+  const routeSearch = Route.useSearch();
+  const [query, setQuery] = useState(routeSearch.query ?? "");
+  const [domain, setDomain] = useState("");
+  const [journalName, setJournalName] = useState("");
+  const [year, setYear] = useState("");
+  const [page, setPage] = useState(1);
+  const deferredQuery = useDeferredValue(query);
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-
-  const bookmarkMutation = useMutation({
-    mutationFn: (paperId: string) => 
-      apiFetch("/api/bookmarks", {
-        method: "POST",
-        body: JSON.stringify({
-          type: 0, // Paper
-          researchPaperId: paperId,
-        }),
+  const papers = useQuery({
+    queryKey: ["papers", deferredQuery, domain, journalName, year, page],
+    queryFn: () =>
+      paperService.list({
+        query: deferredQuery || undefined,
+        domain: domain ? Number(domain) : undefined,
+        journalName: journalName || undefined,
+        fromYear: year ? Number(year) : undefined,
+        toYear: year ? Number(year) : undefined,
+        pageNumber: page,
+        pageSize: 10,
       }),
+  });
+  const journals = useQuery({
+    queryKey: ["journals", "filters"],
+    queryFn: () => journalService.list("", 1, 100),
+  });
+  const bookmark = useMutation({
+    mutationFn: bookmarkService.createPaper,
     onSuccess: () => {
+      toast.success("Paper saved to bookmarks");
       queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
-      toast.success("Paper bookmarked successfully!");
     },
-    onError: (error) => {
-      toast.error("Failed to bookmark paper");
-      console.error(error);
-    },
+    onError: (error) => toast.error(error.message),
   });
 
-  const filtered = useMemo(() => {
-    return papers.filter((p) => {
-      if (q && !(p.title.toLowerCase().includes(q.toLowerCase()) ||
-                 p.authors.some(a => a.toLowerCase().includes(q.toLowerCase())) ||
-                 p.keywords.some(k => k.toLowerCase().includes(q.toLowerCase())))) return false;
-      if (domain !== "all" && p.domain !== domain) return false;
-      if (journal !== "all" && p.journalId !== journal) return false;
-      if (year !== "all" && String(p.year) !== year) return false;
-      return true;
-    });
-  }, [q, domain, journal, year]);
-
-  const domains = Array.from(new Set(papers.map(p => p.domain)));
-  const years = Array.from(new Set(papers.map(p => p.year))).sort((a, b) => b - a);
+  const updateFilter = (setter: (value: string) => void) => (value: string) => {
+    setter(value);
+    setPage(1);
+  };
 
   return (
     <AppShell>
-      <div className="p-8 max-w-7xl mx-auto">
-        <div className="mb-6 flex items-end justify-between">
-          <div>
-            <h1 className="font-serif text-4xl mb-1">Research Library</h1>
-            <p className="text-muted-foreground text-sm">{filtered.length} papers · filter by keyword, author, journal, year or domain.</p>
-          </div>
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-5 md:p-8">
+        <div>
+          <h1 className="font-serif text-4xl">Research Library</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Search indexed papers by title, author, journal, year, and domain.
+          </p>
         </div>
 
-        <div className="bg-surface border border-border rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-center">
-          <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase font-bold tracking-wider mr-2">
-            <Filter className="size-3.5" /> Filters
-          </div>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Keyword, author or title..."
-            className="flex-1 min-w-48 px-3 py-2 bg-secondary rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand/30"
-          />
-          <select value={domain} onChange={(e) => setDomain(e.target.value)} className="px-3 py-2 bg-secondary rounded-lg text-sm outline-none">
-            <option value="all">All domains</option>
-            {domains.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-          <select value={journal} onChange={(e) => setJournal(e.target.value)} className="px-3 py-2 bg-secondary rounded-lg text-sm outline-none">
-            <option value="all">All journals</option>
-            {journals.map(j => <option key={j.id} value={j.id}>{j.name}</option>)}
-          </select>
-          <select value={year} onChange={(e) => setYear(e.target.value)} className="px-3 py-2 bg-secondary rounded-lg text-sm outline-none">
-            <option value="all">All years</option>
-            {years.map(y => <option key={y} value={String(y)}>{y}</option>)}
-          </select>
-        </div>
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3 pt-6">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <Filter /> Filters
+            </div>
+            <div className="relative min-w-56 flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => updateFilter(setQuery)(e.target.value)}
+                placeholder="Title, keyword, or author…"
+                className="pl-9"
+              />
+            </div>
+            <select
+              value={domain}
+              onChange={(e) => updateFilter(setDomain)(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">All domains</option>
+              <option value="0">Computer Science</option>
+              <option value="1">Artificial Intelligence</option>
+            </select>
+            <select
+              value={journalName}
+              onChange={(e) => updateFilter(setJournalName)(e.target.value)}
+              className="h-9 max-w-56 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">All journals</option>
+              {journals.data?.items.map((journal) => (
+                <option key={journal.id} value={journal.title}>
+                  {journal.title}
+                </option>
+              ))}
+            </select>
+            <Input
+              value={year}
+              onChange={(e) => updateFilter(setYear)(e.target.value)}
+              type="number"
+              min="1900"
+              max="2100"
+              placeholder="Year"
+              className="w-28"
+            />
+          </CardContent>
+        </Card>
 
-        <div className="space-y-4">
-          {filtered.map((p) => (
-            <article key={p.id} className="bg-surface border border-border rounded-2xl p-6 hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex gap-2">
-                  <span className="px-2 py-0.5 bg-accent text-indigo text-[10px] font-bold uppercase tracking-wider rounded">{p.domain}</span>
-                  {p.fullText && <span className="px-2 py-0.5 bg-trend-up/10 text-trend-up text-[10px] font-bold uppercase tracking-wider rounded">Full text</span>}
-                </div>
-                <span className="text-xs font-mono text-muted-foreground">DOI: {p.doi}</span>
-              </div>
-              <Link to="/papers/$id" params={{ id: p.id }}>
-                <h3 className="text-lg font-semibold leading-snug mb-2 hover:text-brand transition-colors">{p.title}</h3>
-              </Link>
-              <p className="text-muted-foreground text-sm line-clamp-2 mb-4 italic">{p.abstract}</p>
-              <div className="flex items-center justify-between">
-                <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                  <span>{p.authors.join(", ")}</span>
-                  <span>{p.journalName}</span>
-                  <span>{p.year}</span>
-                  <span>{p.citations.toLocaleString()} citations</span>
-                </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => bookmarkMutation.mutate(p.id)}
-                    disabled={bookmarkMutation.isPending && bookmarkMutation.variables === p.id}
-                    className="size-8 border border-border rounded-lg grid place-items-center hover:bg-secondary disabled:opacity-50"
-                    title="Save bookmark"
-                  >
-                    {bookmarkMutation.isPending && bookmarkMutation.variables === p.id ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Bookmark className="size-3.5" />
-                    )}
-                  </button>
-                  <Link to="/papers/$id" params={{ id: p.id }} className="px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:opacity-90">
-                    View
-                  </Link>
-                </div>
-              </div>
-            </article>
-          ))}
-          {filtered.length === 0 && (
-            <div className="text-center py-16 text-muted-foreground text-sm">No papers match your filters.</div>
+        {papers.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>Could not load papers</AlertTitle>
+            <AlertDescription>{papers.error.message}</AlertDescription>
+          </Alert>
+        ) : null}
+        <p className="text-sm text-muted-foreground">
+          {papers.data
+            ? `${papers.data.totalCount.toLocaleString()} results`
+            : "Loading research index…"}
+        </p>
+
+        <div className="flex flex-col gap-4">
+          {papers.isLoading ? (
+            Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-44 rounded-xl" />)
+          ) : papers.data?.items.length ? (
+            papers.data.items.map((paper) => (
+              <Card key={paper.id} className="shadow-sm transition-shadow hover:shadow-md">
+                <CardHeader>
+                  <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-indigo">{domainLabel(paper.domain)}</span>
+                    <span className="font-mono">
+                      {paper.doi ? `DOI: ${paper.doi}` : paper.apiSource}
+                    </span>
+                  </div>
+                  <CardTitle className="text-lg leading-snug">
+                    <Link to="/papers/$id" params={{ id: paper.id }} className="hover:text-brand">
+                      {paper.title}
+                    </Link>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="line-clamp-2 text-sm italic text-muted-foreground">
+                    {paper.abstract || "No abstract available."}
+                  </p>
+                </CardContent>
+                <CardFooter className="flex-wrap justify-between gap-3 text-xs text-muted-foreground">
+                  <span>
+                    {paper.authors.map((author) => author.fullName).join(", ") || "Unknown authors"}{" "}
+                    · {paper.journal?.title || "Unlisted journal"} · {paper.publicationYear} ·{" "}
+                    {paper.citationCount.toLocaleString()} citations
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      aria-label="Bookmark paper"
+                      disabled={bookmark.isPending}
+                      onClick={() =>
+                        user ? bookmark.mutate(paper.id) : toast.error("Sign in to save bookmarks")
+                      }
+                    >
+                      <Bookmark />
+                    </Button>
+                    <Button asChild size="sm">
+                      <Link to="/papers/$id" params={{ id: paper.id }}>
+                        View paper
+                      </Link>
+                    </Button>
+                  </div>
+                </CardFooter>
+              </Card>
+            ))
+          ) : (
+            <div className="py-16 text-center text-sm text-muted-foreground">
+              No papers match these filters.
+            </div>
           )}
         </div>
+
+        {papers.data && papers.data.totalPages > 1 ? (
+          <div className="flex items-center justify-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => setPage((value) => value - 1)}
+            >
+              <ChevronLeft data-icon="inline-start" /> Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {papers.data.totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!papers.data.hasNextPage}
+              onClick={() => setPage((value) => value + 1)}
+            >
+              Next <ChevronRight data-icon="inline-end" />
+            </Button>
+          </div>
+        ) : null}
       </div>
     </AppShell>
   );

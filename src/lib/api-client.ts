@@ -1,13 +1,10 @@
 // Simple JWT-authenticated fetch client for the .NET backend.
 // Configure the base URL via VITE_API_BASE_URL (see .env).
 
-import { handleMockApi } from "./mock-api";
-
 export const API_BASE_URL: string =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:5220";
 
 const TOKEN_KEY = "scigraph.jwt";
-const USE_MOCK_API = false; // Toggle this to false to use real backend API
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -30,17 +27,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T = unknown>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
-  if (USE_MOCK_API) {
-    const mockRes = await handleMockApi(path);
-    if (mockRes !== null) {
-      return mockRes as T;
-    }
-  }
-
+export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (!headers.has("Content-Type") && init.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
@@ -49,18 +36,31 @@ export async function apiFetch<T = unknown>(
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
-  const res = await fetch(url, { ...init, headers });
+  const url = path.startsWith("http")
+    ? path
+    : `${API_BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+  const res = await fetch(url, {
+    ...init,
+    headers,
+    signal: init.signal ?? AbortSignal.timeout(10_000),
+  });
 
   const text = await res.text();
   let data: unknown = null;
   if (text) {
-    try { data = JSON.parse(text); } catch { data = text; }
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
   }
 
   if (!res.ok) {
     const msg =
-      (data && typeof data === "object" && "message" in data && typeof (data as { message: unknown }).message === "string"
+      (data &&
+      typeof data === "object" &&
+      "message" in data &&
+      typeof (data as { message: unknown }).message === "string"
         ? (data as { message: string }).message
         : res.statusText) || `Request failed (${res.status})`;
     throw new ApiError(res.status, msg, data);
