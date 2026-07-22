@@ -1,146 +1,89 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { ArrowLeft, TrendingUp } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { paperService, topicService } from "@/api/services";
-import { domainLabel } from "@/api/types";
-import { FollowButton } from "@/components/follow-button";
+import { topics, papers, topicTrend } from "@/lib/mock-data";
 
-export const Route = createFileRoute("/topics/$id")({ component: TopicDetail });
+export const Route = createFileRoute("/topics/$id")({
+  loader: ({ params }) => {
+    const topic = topics.find((t) => t.id === params.id);
+    if (!topic) throw notFound();
+    return { topic };
+  },
+  head: ({ loaderData }) => ({
+    meta: loaderData
+      ? [
+          { title: `${loaderData.topic.name} — Scigraph` },
+          { name: "description", content: loaderData.topic.description },
+        ]
+      : [{ title: "Topic — Scigraph" }],
+  }),
+  component: TopicDetail,
+  notFoundComponent: () => <AppShell><div className="p-12 text-center text-muted-foreground">Topic not found.</div></AppShell>,
+  errorComponent: () => <AppShell><div className="p-12 text-center text-muted-foreground">Failed to load topic.</div></AppShell>,
+});
 
 function TopicDetail() {
-  const { id } = Route.useParams();
-  const topic = useQuery({
-    queryKey: ["topic", id],
-    queryFn: () => topicService.detail(id),
-    retry: false,
-  });
-  const trend = useQuery({
-    queryKey: ["topic", id, "trend"],
-    queryFn: () => topicService.trend(id),
-    retry: false,
-  });
-  const papers = useQuery({
-    queryKey: ["topic", id, "papers"],
-    queryFn: () => paperService.list({ topicName: topic.data?.name, pageSize: 5 }),
-    enabled: Boolean(topic.data?.name),
-  });
+  const { topic } = Route.useLoaderData();
+  const related = papers.filter((p) => p.domain === topic.domain).slice(0, 5);
+  const trend = topicTrend(topic.growth / 4);
+
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-5 md:p-8">
-        <Button asChild variant="ghost" className="w-fit">
-          <Link to="/topics">
-            <ArrowLeft data-icon="inline-start" /> Trend explorer
-          </Link>
-        </Button>
-        {topic.isLoading ? (
-          <Skeleton className="h-40" />
-        ) : topic.error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Topic unavailable</AlertTitle>
-            <AlertDescription>
-              {topic.error.message}. Topic details require authentication.
-            </AlertDescription>
-          </Alert>
-        ) : topic.data ? (
-          <div className="flex flex-wrap items-end justify-between gap-5">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                {domainLabel(topic.data.domain)}
-              </p>
-              <h1 className="mt-2 font-serif text-4xl">{topic.data.name}</h1>
-              <p className="mt-2 max-w-2xl italic text-muted-foreground">
-                {topic.data.description}
-              </p>
-            </div>
-            {trend.data ? (
-              <div className="text-right">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                  Overall growth
-                </p>
-                <p className="mt-1 flex items-center gap-1 font-serif text-3xl text-trend-up">
-                  <TrendingUp /> {trend.data.overallGrowthRate >= 0 ? "+" : ""}
-                  {trend.data.overallGrowthRate.toFixed(1)}%
-                </p>
-              </div>
-            ) : null}
-            <FollowButton targetType="ResearchTopic" targetId={topic.data.id} />
+      <div className="p-8 max-w-6xl mx-auto">
+        <Link to="/topics" className="inline-flex items-center gap-2 text-xs uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground mb-6">
+          <ArrowLeft className="size-3.5" /> Trend explorer
+        </Link>
+
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
+          <div>
+            <div className="text-xs uppercase tracking-widest font-bold text-muted-foreground mb-2">{topic.domain}</div>
+            <h1 className="font-serif text-4xl mb-2">{topic.name}</h1>
+            <p className="text-muted-foreground max-w-2xl italic">{topic.description}</p>
           </div>
-        ) : null}
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-serif text-xl">Publication momentum</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {trend.isLoading ? (
-              <Skeleton className="h-72" />
-            ) : trend.error ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                Trend data is not available.
-              </p>
-            ) : trend.data?.dataPoints.length ? (
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trend.data.dataPoints}>
-                    <defs>
-                      <linearGradient id="topic-fill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--indigo)" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="var(--indigo)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="year" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area
-                      dataKey="publicationCount"
-                      stroke="var(--indigo)"
-                      fill="url(#topic-fill)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="text-xs uppercase tracking-widest text-muted-foreground">Growth</div>
+              <div className="inline-flex items-center gap-1 text-trend-up font-serif text-3xl">
+                <TrendingUp className="size-5" /> +{topic.growth}%
               </div>
-            ) : (
-              <p className="py-10 text-center text-sm text-muted-foreground">No trend data yet.</p>
-            )}
-          </CardContent>
-        </Card>
-        <section>
-          <h2 className="mb-4 font-serif text-2xl">Related papers</h2>
-          <div className="flex flex-col gap-3">
-            {papers.isLoading ? (
-              <Skeleton className="h-32" />
-            ) : papers.data?.items.length ? (
-              papers.data.items.map((paper) => (
-                <Link key={paper.id} to="/papers/$id" params={{ id: paper.id }}>
-                  <Card className="p-5 shadow-sm hover:shadow-md">
-                    <h3 className="font-semibold hover:text-brand">{paper.title}</h3>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {paper.authors.map((author) => author.fullName).join(", ")} ·{" "}
-                      {paper.publicationYear}
-                    </p>
-                  </Card>
-                </Link>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground">No related papers found.</p>
-            )}
+            </div>
+            <button className={`px-4 py-2 text-sm font-medium rounded-lg border ${topic.followed ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-secondary"}`}>
+              {topic.followed ? "Following" : "Follow topic"}
+            </button>
+          </div>
+        </div>
+
+        <section className="bg-surface border border-border rounded-2xl p-6 mb-8">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Publication Momentum</h2>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trend}>
+                <defs>
+                  <linearGradient id="tgrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--indigo)" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="var(--indigo)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={11} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={11} />
+                <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                <Area type="monotone" dataKey="value" stroke="var(--indigo)" fill="url(#tgrad)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </section>
+
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Related Papers</h2>
+        <div className="space-y-3">
+          {related.map((p) => (
+            <Link key={p.id} to="/papers/$id" params={{ id: p.id }} className="block bg-surface border border-border rounded-xl p-4 hover:shadow-sm transition-shadow">
+              <h3 className="font-semibold text-base mb-1 hover:text-brand">{p.title}</h3>
+              <div className="text-xs text-muted-foreground">{p.authors.join(", ")} · {p.journalName} · {p.year}</div>
+            </Link>
+          ))}
+        </div>
       </div>
     </AppShell>
   );

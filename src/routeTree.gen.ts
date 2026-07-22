@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as NotificationsRouteImport } from './routes/notifications'
-import { Route as FollowingRouteImport } from './routes/following'
 import { Route as BookmarksRouteImport } from './routes/bookmarks'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -26,11 +25,6 @@ import { Route as AdminDataSourcesRouteImport } from './routes/admin.data-source
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FollowingRoute = FollowingRouteImport.update({
-  id: '/following',
-  path: '/following',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BookmarksRoute = BookmarksRouteImport.update({
@@ -93,7 +87,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bookmarks': typeof BookmarksRoute
-  '/following': typeof FollowingRoute
   '/notifications': typeof NotificationsRoute
   '/admin/data-sources': typeof AdminDataSourcesRoute
   '/admin/users': typeof AdminUsersRoute
@@ -108,7 +101,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bookmarks': typeof BookmarksRoute
-  '/following': typeof FollowingRoute
   '/notifications': typeof NotificationsRoute
   '/admin/data-sources': typeof AdminDataSourcesRoute
   '/admin/users': typeof AdminUsersRoute
@@ -124,7 +116,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bookmarks': typeof BookmarksRoute
-  '/following': typeof FollowingRoute
   '/notifications': typeof NotificationsRoute
   '/admin/data-sources': typeof AdminDataSourcesRoute
   '/admin/users': typeof AdminUsersRoute
@@ -141,7 +132,6 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/bookmarks'
-    | '/following'
     | '/notifications'
     | '/admin/data-sources'
     | '/admin/users'
@@ -156,7 +146,6 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/bookmarks'
-    | '/following'
     | '/notifications'
     | '/admin/data-sources'
     | '/admin/users'
@@ -171,7 +160,6 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/bookmarks'
-    | '/following'
     | '/notifications'
     | '/admin/data-sources'
     | '/admin/users'
@@ -187,7 +175,6 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   BookmarksRoute: typeof BookmarksRoute
-  FollowingRoute: typeof FollowingRoute
   NotificationsRoute: typeof NotificationsRoute
   AdminDataSourcesRoute: typeof AdminDataSourcesRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -206,13 +193,6 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/following': {
-      id: '/following'
-      path: '/following'
-      fullPath: '/following'
-      preLoaderRoute: typeof FollowingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bookmarks': {
@@ -299,7 +279,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   BookmarksRoute: BookmarksRoute,
-  FollowingRoute: FollowingRoute,
   NotificationsRoute: NotificationsRoute,
   AdminDataSourcesRoute: AdminDataSourcesRoute,
   AdminUsersRoute: AdminUsersRoute,

@@ -1,246 +1,257 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQueries } from "@tanstack/react-query";
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
   ResponsiveContainer,
-  Tooltip,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
+  CartesianGrid,
+  Tooltip,
 } from "recharts";
-import { ArrowRight, BookOpen, Library, Sparkles, Users } from "lucide-react";
+import { ArrowUpRight, Bookmark, TrendingUp, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { dashboardService, paperService, topicService } from "@/api/services";
-import { domainLabel } from "@/api/types";
+import { papers, topics, journals } from "@/lib/mock-data";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api-client";
+import { ApiResponse, AnalyticalReportDto } from "@/lib/types";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/")({
-  head: () => ({ meta: [{ title: "Research overview — Scigraph" }] }),
+  head: () => ({
+    meta: [
+      { title: "Dashboard — Scigraph" },
+      { name: "description", content: "Overview of research trends, trending topics, and newly published papers." },
+    ],
+  }),
   component: Dashboard,
 });
 
+function StatCard({ label, value, hint, tone = "default" }: { label: string; value: string; hint?: string; tone?: "default" | "up" | "brand" }) {
+  return (
+    <div className="bg-surface p-6 rounded-2xl border border-border shadow-sm">
+      <div className="text-muted-foreground text-xs font-bold uppercase mb-1 tracking-wider">{label}</div>
+      <div className={`text-3xl font-serif ${tone === "brand" ? "text-indigo" : ""}`}>{value}</div>
+      {hint && (
+        <div className={`text-xs font-medium mt-2 ${tone === "up" ? "text-trend-up" : "text-muted-foreground"}`}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Dashboard() {
-  const [summary, chart, papers, trending] = useQueries({
-    queries: [
-      { queryKey: ["dashboard", "summary"], queryFn: dashboardService.summary },
-      { queryKey: ["dashboard", "publications"], queryFn: dashboardService.publicationsByYear },
-      { queryKey: ["papers", "recent"], queryFn: () => paperService.list({ pageSize: 5 }) },
-      { queryKey: ["topics", "trending"], queryFn: () => topicService.trending(5) },
-    ],
+  const recent = papers.slice(0, 3);
+  const trendingTopics = [...topics].sort((a, b) => b.growth - a.growth).slice(0, 3);
+  const followedJournals = journals.filter((j) => j.followed);
+
+  const { data: response, isLoading } = useQuery<ApiResponse<AnalyticalReportDto>>({
+    queryKey: ["report-summary"],
+    queryFn: () => apiFetch("/api/reports/summary"),
   });
 
-  const loading = summary.isLoading || chart.isLoading || papers.isLoading || trending.isLoading;
-  const error = summary.error || chart.error || papers.error || trending.error;
-  const chartData = chart.data?.dataPoints?.length
-    ? chart.data.dataPoints
-    : (chart.data?.labels.map((label, index) => ({
-        label,
-        value: chart.data?.values[index] ?? 0,
-      })) ?? []);
+  const generateMutation = useMutation({
+    mutationFn: () => 
+      apiFetch("/api/reports/generate", {
+        method: "POST",
+        body: JSON.stringify({ title: "Weekly Insight Report" }),
+      }),
+    onSuccess: () => {
+      toast.success("Analytical report generated successfully!");
+    },
+    onError: (error) => {
+      toast.error("Failed to generate report");
+      console.error(error);
+    },
+  });
+
+  const summary = response?.data;
+  
+  // Format chart data from API
+  const chartData = summary?.publicationsByYear?.map(y => ({
+    year: y.year.toString(),
+    publications: y.count
+  })) || [];
 
   return (
     <AppShell>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 p-5 md:p-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="font-serif text-4xl">Research Overview</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Live publication signals from the scientific journal API.
-            </p>
-          </div>
-          <Button asChild variant="outline">
-            <Link to="/papers">
-              Explore papers <ArrowRight data-icon="inline-end" />
-            </Link>
-          </Button>
+      <div className="p-8 max-w-7xl mx-auto w-full">
+        <div className="mb-8">
+          <h1 className="font-serif text-4xl mb-1">Research Overview</h1>
+          <p className="text-muted-foreground text-sm">Live signals from your indexed journals and topics.</p>
         </div>
 
-        {error ? (
-          <Alert variant="destructive">
-            <AlertTitle>Cannot reach the research API</AlertTitle>
-            <AlertDescription>
-              {error.message}. Check that the .NET API is running and VITE_API_BASE_URL is correct.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {loading ? (
-            Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)
-          ) : (
-            <>
-              <Metric
-                icon={BookOpen}
-                label="Total papers"
-                value={summary.data?.totalPapers ?? 0}
-                hint={`${summary.data?.papersThisYear ?? 0} published this year`}
-              />
-              <Metric
-                icon={Library}
-                label="Journals"
-                value={summary.data?.totalJournals ?? 0}
-                hint="Indexed sources"
-              />
-              <Metric
-                icon={Users}
-                label="Authors"
-                value={summary.data?.totalAuthors ?? 0}
-                hint={`${summary.data?.averageCitations.toFixed(1) ?? 0} average citations`}
-              />
-              <Metric
-                icon={Sparkles}
-                label="Research topics"
-                value={summary.data?.totalResearchTopics ?? 0}
-                hint={`Top: ${domainLabel(summary.data?.topDomain ?? "—")}`}
-              />
-            </>
-          )}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <StatCard label="Active Topics" value={summary?.topKeywords?.length?.toString() || "..."} hint="From indexed data" tone="up" />
+          <StatCard label="New Publications" value={summary?.totalPapersCount?.toLocaleString() || "..."} hint="Across connected APIs" />
+          <StatCard label="Top Domain" value={summary?.topResearchDomains?.[0]?.domain || "..."} hint="High momentum" tone="brand" />
+          <StatCard label="Citations Tracked" value={summary?.mostCitedPapers?.reduce((acc, p) => acc + p.citationCount, 0).toLocaleString() || "..."} hint="Real-time sync" />
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-serif text-xl">Publications by year</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {chart.isLoading ? (
-                <Skeleton className="h-72" />
-              ) : chartData.length ? (
-                <div className="h-72">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="lg:col-span-2 space-y-8">
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-serif font-semibold">Global Publication Trend</h2>
+                <select className="text-xs bg-transparent font-medium text-muted-foreground cursor-pointer outline-none">
+                  <option>Last 12 Months</option>
+                  <option>Last 5 Years</option>
+                </select>
+              </div>
+              <div className="bg-surface border border-border rounded-2xl p-6">
+                <div className="w-full h-72">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData}>
-                      <defs>
-                        <linearGradient id="publication-fill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
-                          <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="label" fontSize={11} />
-                      <YAxis fontSize={11} />
-                      <Tooltip />
-                      <Area
-                        type="monotone"
-                        dataKey="value"
-                        stroke="var(--brand)"
-                        fill="url(#publication-fill)"
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
+                    {isLoading ? (
+                       <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                         <Loader2 className="size-6 animate-spin" />
+                       </div>
+                    ) : (
+                      <AreaChart data={chartData}>
+                        <defs>
+                          <linearGradient id="pubColor" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="year" stroke="var(--muted-foreground)" fontSize={11} />
+                        <YAxis stroke="var(--muted-foreground)" fontSize={11} />
+                        <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+                        <Area type="monotone" dataKey="publications" name="Publications" stroke="var(--brand)" fill="url(#pubColor)" strokeWidth={2} />
+                      </AreaChart>
+                    )}
                   </ResponsiveContainer>
                 </div>
-              ) : (
-                <Empty text="No publication chart data yet." />
-              )}
-            </CardContent>
-          </Card>
+              </div>
+            </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-serif text-xl">Trending now</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {trending.isLoading ? (
-                Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-14" />)
-              ) : trending.data?.items.length ? (
-                trending.data.items.map((item) => (
-                  <div
-                    key={`${item.type}-${item.name}`}
-                    className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.totalPapers.toLocaleString()} papers
-                      </p>
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-serif font-semibold">Critical Research Highlights</h2>
+                <Link to="/papers" className="text-xs text-brand hover:underline">View library →</Link>
+              </div>
+              <div className="space-y-4">
+                {recent.map((p) => (
+                  <article key={p.id} className="bg-surface border border-border rounded-2xl p-6 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="px-2 py-0.5 bg-accent text-indigo text-[10px] font-bold uppercase tracking-wider rounded">
+                        {p.domain}
+                      </span>
+                      <span className="text-xs font-mono text-muted-foreground">DOI: {p.doi}</span>
                     </div>
-                    <span className="font-mono text-xs text-trend-up">
-                      {item.growthRate >= 0 ? "+" : ""}
-                      {item.growthRate.toFixed(1)}%
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <Empty text="No trending topics yet." />
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-serif text-2xl">Latest research</h2>
-            <Link to="/papers" className="text-sm font-medium text-brand hover:underline">
-              View library
-            </Link>
-          </div>
-          {papers.isLoading ? (
-            Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)
-          ) : papers.data?.items.length ? (
-            papers.data.items.slice(0, 4).map((paper) => (
-              <Card key={paper.id} className="shadow-sm transition-shadow hover:shadow-md">
-                <CardHeader>
-                  <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
-                    <span>{domainLabel(paper.domain)}</span>
-                    <span>
-                      {paper.publicationYear} · {paper.citationCount.toLocaleString()} citations
-                    </span>
-                  </div>
-                  <CardTitle className="text-lg leading-snug">
-                    <Link to="/papers/$id" params={{ id: paper.id }} className="hover:text-brand">
-                      {paper.title}
+                    <Link to="/papers/$id" params={{ id: p.id }} className="block">
+                      <h3 className="text-lg font-semibold leading-snug mb-2 hover:text-brand transition-colors">
+                        {p.title}
+                      </h3>
                     </Link>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="line-clamp-2 text-sm italic text-muted-foreground">
-                    {paper.abstract || "No abstract available."}
-                  </p>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <Empty text="No research papers have been indexed yet." />
-          )}
-        </section>
+                    <p className="text-muted-foreground text-sm line-clamp-2 mb-4 italic">{p.abstract}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex gap-4 text-xs font-medium text-muted-foreground">
+                        <span>{p.authors.join(", ")}</span>
+                        <span>{p.year}</span>
+                        <span>{p.citations.toLocaleString()} citations</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="size-8 border border-border rounded-lg grid place-items-center hover:bg-secondary transition-colors">
+                          <Bookmark className="size-3.5" />
+                        </button>
+                        <Link
+                          to="/papers/$id"
+                          params={{ id: p.id }}
+                          className="px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:opacity-90"
+                        >
+                          Read
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {/* Right column */}
+          <div className="space-y-8">
+            <section>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Trending Topics</h2>
+              <div className="space-y-3">
+                {trendingTopics.map((t) => (
+                  <Link
+                    key={t.id}
+                    to="/topics/$id"
+                    params={{ id: t.id }}
+                    className="flex items-center justify-between p-3 bg-surface border border-border rounded-xl hover:shadow-sm transition-shadow"
+                  >
+                    <div>
+                      <div className="text-sm font-semibold">{t.name}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase font-mono">Growth: +{t.growth}%</div>
+                    </div>
+                    <TrendingUp className="size-4 text-trend-up" />
+                  </Link>
+                ))}
+              </div>
+              <Link
+                to="/topics"
+                className="block w-full mt-4 py-2 text-xs font-bold text-muted-foreground border border-dashed border-border rounded-xl hover:border-foreground/40 transition-colors italic text-center"
+              >
+                Discover More Topics
+              </Link>
+            </section>
+
+            <section className="bg-indigo rounded-2xl p-6 text-indigo-foreground">
+              <h2 className="text-lg font-serif mb-2">Weekly Insight Report</h2>
+              <p className="text-indigo-foreground/80 text-xs leading-relaxed mb-4">
+                {summary?.description || "Loading insights..."}
+              </p>
+              <div className="space-y-2">
+                <div className="h-1 bg-indigo-foreground/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-indigo-foreground w-3/4" />
+                </div>
+                <div className="flex justify-between text-[10px] font-mono opacity-80">
+                  <span>Insight Confidence</span>
+                  <span>75%</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => generateMutation.mutate()}
+                disabled={generateMutation.isPending}
+                className="w-full mt-6 py-2 bg-indigo-foreground text-indigo text-xs font-bold rounded-lg hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {generateMutation.isPending ? (
+                  <><Loader2 className="size-3.5 animate-spin" /> Generating...</>
+                ) : (
+                  "Generate Report"
+                )}
+              </button>
+            </section>
+
+            <section>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Journal Activity</h2>
+              <div className="space-y-3">
+                {followedJournals.map((j) => (
+                  <Link
+                    key={j.id}
+                    to="/journals/$id"
+                    params={{ id: j.id }}
+                    className="flex items-center gap-3 p-3 bg-surface border border-border rounded-xl hover:shadow-sm transition-shadow"
+                  >
+                    <div className="size-10 rounded bg-secondary grid place-items-center font-serif text-lg">
+                      {j.name[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold truncate">{j.name}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {j.publisher} · IF {j.impactFactor}
+                      </div>
+                    </div>
+                    <ArrowUpRight className="size-4 text-muted-foreground" />
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
       </div>
     </AppShell>
   );
-}
-
-function Metric({
-  icon: Icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: typeof BookOpen;
-  label: string;
-  value: number;
-  hint: string;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            {label}
-          </p>
-          <CardTitle className="mt-2 font-serif text-3xl">{value.toLocaleString()}</CardTitle>
-        </div>
-        <div className="grid size-10 place-items-center rounded-lg bg-secondary text-brand">
-          <Icon />
-        </div>
-      </CardHeader>
-      <CardContent className="text-xs text-muted-foreground">{hint}</CardContent>
-    </Card>
-  );
-}
-
-function Empty({ text }: { text: string }) {
-  return <div className="py-10 text-center text-sm text-muted-foreground">{text}</div>;
 }
