@@ -150,12 +150,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [user, token, loading, authLoading, login, register, logout],
   );
+import { useEffect, type ReactNode } from "react";
+import { useAuthStore } from "@/features/auth/model/auth-store";
+import { Role, roleLabel } from "@/shared/auth/roles";
+import type { AuthUser } from "@/shared/auth/jwt";
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+export { Role, roleLabel };
+export type { AuthUser };
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const initialize = useAuthStore((state) => state.initialize);
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  return <>{children}</>;
 }
 
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within <AuthProvider>");
-  return ctx;
+export function useAuth() {
+  return useAuthStore();
 }

@@ -9,6 +9,10 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { bookmarkService } from "@/api/services";
 import { useAuth } from "@/lib/auth";
+import { MainLayout } from "@/app/layouts/main-layout";
+import { useBookmarks, useRemoveBookmark } from "@/lib/queries";
+import { BookmarkMinus, Loader2 } from "lucide-react";
+import { ALL_AUTHENTICATED_ROLES } from "@/shared/auth/roles";
 
 export const Route = createFileRoute("/bookmarks")({ component: Bookmarks });
 
@@ -105,8 +109,49 @@ function Bookmarks() {
           <div className="py-16 text-center text-sm text-muted-foreground">
             You have not saved anything yet.
           </div>
+  const { data, isLoading } = useBookmarks();
+  const removeBookmark = useRemoveBookmark();
+
+  const saved = data?.items || [];
+  return (
+    <MainLayout roles={ALL_AUTHENTICATED_ROLES}>
+      <div className="p-8 max-w-5xl mx-auto">
+        <div className="mb-8">
+          <h1 className="font-serif text-4xl mb-1">Bookmarks</h1>
+          <p className="text-muted-foreground text-sm">{saved.length} papers saved.</p>
+        </div>
+        {isLoading ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+        <div className="space-y-3">
+          {saved.map((p) => (
+            <div key={p.id} className="bg-surface border border-border rounded-2xl p-5 flex items-start gap-4">
+              <div className="flex-1 min-w-0">
+                <Link to="/papers/$id" params={{ id: p.researchPaperId || "" }} className="font-semibold hover:text-brand block mb-1">
+                  {p.paperTitle || "Untitled Document"}
+                </Link>
+                <div className="text-xs text-muted-foreground">Bookmarked on {new Date(p.createdAt ?? Date.now()).toLocaleDateString()}</div>
+              </div>
+              <button 
+                onClick={() => removeBookmark.mutate({ paperId: p.researchPaperId ?? undefined, bookmarkId: p.id })}
+                disabled={removeBookmark.isPending}
+                className="size-8 border border-border rounded-lg grid place-items-center hover:bg-secondary disabled:opacity-50" 
+                aria-label="Remove bookmark"
+              >
+                {removeBookmark.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <BookmarkMinus className="size-3.5" />}
+              </button>
+            </div>
+          ))}
+          {saved.length === 0 && (
+            <div className="text-center py-10 text-muted-foreground bg-secondary/30 rounded-xl border border-dashed border-border">
+              No bookmarks yet. Start saving interesting papers!
+            </div>
+          )}
+        </div>
         )}
       </div>
-    </AppShell>
+    </MainLayout>
   );
 }

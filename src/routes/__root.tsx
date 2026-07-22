@@ -13,6 +13,17 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../lib/auth";
 import { Toaster } from "../components/ui/sonner";
+import { ThemeProvider } from "@/features/theme/ui/theme-provider";
+
+const themeInitScript = `
+try {
+  var storedTheme = localStorage.getItem("scigraph.theme");
+  var theme = storedTheme === "light" || storedTheme === "dark" || storedTheme === "system" ? storedTheme : "system";
+  var resolvedTheme = theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : theme === "dark" ? "dark" : "light";
+  document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
+  document.documentElement.style.colorScheme = resolvedTheme;
+} catch (_) {}
+`;
 
 function NotFoundComponent() {
   return (
@@ -114,6 +125,12 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
+    <html lang="en" suppressHydrationWarning>
+      <head suppressHydrationWarning>  {/* ← add this */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <HeadContent />
+      </head>
+      <body suppressHydrationWarning>  {/* ← add this */}
         {children}
         <Scripts />
       </body>
@@ -129,6 +146,11 @@ function RootComponent() {
         <Outlet />
         <Toaster />
       </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
