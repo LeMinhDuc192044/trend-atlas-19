@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as ImportRouteImport } from './routes/import'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as BookmarksRouteImport } from './routes/bookmarks'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -25,6 +27,16 @@ import { Route as AdminDataSourcesRouteImport } from './routes/admin.data-source
 const NotificationsRoute = NotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImportRoute = ImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BookmarksRoute = BookmarksRouteImport.update({
@@ -87,6 +99,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bookmarks': typeof BookmarksRoute
+  '/dashboard': typeof DashboardRoute
+  '/import': typeof ImportRoute
   '/notifications': typeof NotificationsRoute
   '/admin/data-sources': typeof AdminDataSourcesRoute
   '/admin/users': typeof AdminUsersRoute
@@ -101,6 +115,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bookmarks': typeof BookmarksRoute
+  '/dashboard': typeof DashboardRoute
+  '/import': typeof ImportRoute
   '/notifications': typeof NotificationsRoute
   '/admin/data-sources': typeof AdminDataSourcesRoute
   '/admin/users': typeof AdminUsersRoute
@@ -116,6 +132,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bookmarks': typeof BookmarksRoute
+  '/dashboard': typeof DashboardRoute
+  '/import': typeof ImportRoute
   '/notifications': typeof NotificationsRoute
   '/admin/data-sources': typeof AdminDataSourcesRoute
   '/admin/users': typeof AdminUsersRoute
@@ -132,6 +150,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/bookmarks'
+    | '/dashboard'
+    | '/import'
     | '/notifications'
     | '/admin/data-sources'
     | '/admin/users'
@@ -146,6 +166,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/bookmarks'
+    | '/dashboard'
+    | '/import'
     | '/notifications'
     | '/admin/data-sources'
     | '/admin/users'
@@ -160,6 +182,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/bookmarks'
+    | '/dashboard'
+    | '/import'
     | '/notifications'
     | '/admin/data-sources'
     | '/admin/users'
@@ -175,6 +199,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   BookmarksRoute: typeof BookmarksRoute
+  DashboardRoute: typeof DashboardRoute
+  ImportRoute: typeof ImportRoute
   NotificationsRoute: typeof NotificationsRoute
   AdminDataSourcesRoute: typeof AdminDataSourcesRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -193,6 +219,20 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/import': {
+      id: '/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof ImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bookmarks': {
@@ -279,6 +319,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   BookmarksRoute: BookmarksRoute,
+  DashboardRoute: DashboardRoute,
+  ImportRoute: ImportRoute,
   NotificationsRoute: NotificationsRoute,
   AdminDataSourcesRoute: AdminDataSourcesRoute,
   AdminUsersRoute: AdminUsersRoute,
