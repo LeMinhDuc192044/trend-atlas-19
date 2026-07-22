@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/features/theme/ui/theme-toggle";
 import { Logo } from "@/shared/ui/logo";
 
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [

@@ -1,7 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { apiClient, unwrapApiResponse } from "@/shared/api/client";
 import type { components } from "@/shared/api/schema";
 import { useAuthStore } from "@/features/auth/model/auth-store";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export type ResearchTopicListItemDto = components["schemas"]["ResearchTopicListItemDto"];
 export type ResearchTopicDto = components["schemas"]["ResearchTopicDto"];
@@ -9,6 +9,8 @@ export type ResearchPaperDto = components["schemas"]["ResearchPaperDto"];
 export type PagedResearchPapers = components["schemas"]["PagedResultOfResearchPaperDto"];
 export type JournalListItemDto = components["schemas"]["JournalListItemDto"];
 export type ResearchDomain = components["schemas"]["ResearchDomain"];
+export type ImportSinglePaperResult = components["schemas"]["ImportSinglePaperResult"];
+export type ImportResearchPaperByLinkCommand = components["schemas"]["ImportResearchPaperByLinkCommand"];
 
 export type ResearchPaperSearchParams = {
   query?: string;
@@ -40,6 +42,26 @@ export function useResearchTopics() {
     },
   });
 }
+
+export function useImportPaperByLink() {
+  const token = useAuthStore((state) => state.token);
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: ImportResearchPaperByLinkCommand) => {
+      if (!token) throw new Error("You must be signed in to import a paper.");
+
+      const { data, error } = await apiClient.POST("/api/research-papers/import-single", {
+        body: payload,
+      });
+      if (error) throw error;
+      return data as ImportSinglePaperResult;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["research", "papers"] });
+    },
+  });
+} 
 
 export function useResearchTopic(id: string) {
   const token = useAuthStore((state) => state.token);
