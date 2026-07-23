@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ALL_AUTHENTICATED_ROLES },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ADMIN_ONLY },
   { to: "/topics", label: "Trend Explorer", icon: TrendingUp, roles: ALL_AUTHENTICATED_ROLES },
   { to: "/papers", label: "Research Library", icon: BookOpen, roles: ALL_AUTHENTICATED_ROLES },
   { to: "/journals", label: "Journal Tracker", icon: Newspaper, roles: ALL_AUTHENTICATED_ROLES },
@@ -71,16 +71,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground md:flex">
       {/* Sidebar */}
       <motion.aside
-        className="w-64 shrink-0 border-r border-border bg-sidebar flex flex-col sticky top-0 h-screen"
+        className="border-b border-border bg-sidebar md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shrink-0 md:flex-col md:border-b-0 md:border-r"
         initial={{ opacity: 0, x: -16 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
       >
         <motion.div
-          className="p-6 border-b border-border flex items-center gap-3"
+          className="flex items-center gap-3 border-b border-border p-4 md:p-6"
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05, duration: 0.22 }}
@@ -92,7 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           />
         </motion.div>
 
-        <nav className="p-4 flex-1 space-y-1 overflow-y-auto">
+        <nav className="flex gap-2 overflow-x-auto p-3 md:block md:flex-1 md:space-y-1 md:overflow-y-auto md:p-4">
           {nav.filter((n) => hasAnyRole(userRole, n.roles)).map((n) => {
             const Icon = n.icon;
             const active = isActive(n.to);
@@ -104,7 +104,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <Link
                   to={n.to}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                  className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors md:gap-3 ${
                     active
                       ? "bg-secondary text-brand font-medium"
                       : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
@@ -119,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
           {hasAnyRole(userRole, ADMIN_ONLY) && (
             <>
-              <div className="pt-6 pb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              <div className="hidden pt-6 pb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground md:block">
                 Administration
               </div>
               {admin.map((n) => {
@@ -133,7 +133,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <Link
                       to={n.to}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+                      className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors md:gap-3 ${
                         active
                           ? "bg-secondary text-brand font-medium"
                           : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
@@ -151,14 +151,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </motion.aside>
 
       {/* Main */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex min-w-0 flex-1 flex-col">
         <motion.header
-          className="h-16 border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-10 px-8 flex items-center justify-between"
+          className="sticky top-0 z-10 flex min-h-16 items-center justify-between gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md md:px-8"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
         >
-          <form onSubmit={handleGlobalSearch} className="relative w-96 max-w-full">
+          <form onSubmit={handleGlobalSearch} className="relative min-w-0 flex-1 md:w-96 md:max-w-full md:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <input
               type="text"
@@ -168,7 +168,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               className="w-full pl-10 pr-4 py-2 bg-secondary rounded-full text-sm outline-none focus:ring-2 focus:ring-brand/30"
             />
           </form>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex shrink-0 items-center gap-2 text-sm md:gap-4">
             <Link
               to="/notifications"
               className="relative grid size-9 place-items-center rounded-full border border-border hover:bg-secondary transition-colors"
@@ -182,7 +182,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <button
                   onClick={() => generateReport.mutate()}
                   disabled={generateReport.isPending}
-                  className="px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-secondary transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="hidden items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary disabled:opacity-50 sm:flex"
                 >
                   {generateReport.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
                   {generateReport.isPending ? "Exporting..." : "Export Report"}

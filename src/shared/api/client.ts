@@ -1,7 +1,7 @@
 import createClient, { type Middleware } from "openapi-fetch";
 import type { paths } from "./schema";
 import { API_BASE_URL } from "@/shared/config/env";
-import { getAccessToken } from "@/shared/auth/token-storage";
+import { clearAuthTokens, getAccessToken } from "@/shared/auth/token-storage";
 
 export type ApiResponse<T> = {
   success?: boolean;
@@ -30,12 +30,25 @@ export class ApiError extends Error {
   }
 }
 
+export const AUTH_UNAUTHORIZED_EVENT = "scigraph:auth:unauthorized";
+
+function handleUnauthorized() {
+  clearAuthTokens();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
+  }
+}
+
 const authMiddleware: Middleware = {
   onRequest({ request }) {
     request.headers.set("Accept", "application/json");
     const token = getAccessToken();
     if (token) request.headers.set("Authorization", `Bearer ${token}`);
     return request;
+  },
+  onResponse({ response }) {
+    if (response.status === 401) handleUnauthorized();
+    return response;
   },
 };
 
@@ -92,6 +105,8 @@ export async function apiFetch<T = unknown>(path: string, init: RequestInit = {}
       body?.errors ?? body?.error?.validationErrors ?? body?.validationErrors ?? undefined;
     const message =
       body?.message ?? body?.error?.message ?? body?.title ?? res.statusText ?? `Request failed (${res.status})`;
+
+    if (res.status === 401) handleUnauthorized();
 
     throw new ApiError(res.status, message, data, validationErrors);
   }

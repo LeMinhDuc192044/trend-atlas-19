@@ -10,10 +10,13 @@ export type NotificationDto = {
   title?: string | null;
   message?: string | null;
   relatedPaperId?: string | null;
+  relatedPaperTitle?: string | null;
   relatedJournalId?: string | null;
+  relatedJournalTitle?: string | null;
+  relatedResearchTopicId?: string | null;
+  relatedResearchTopicName?: string | null;
   isRead?: boolean;
   createdAt?: string;
-  updatedAt?: string;
 };
 
 export type NotificationListResponse = {
@@ -65,9 +68,19 @@ export function useMarkAllNotificationsAsRead() {
 
   return useMutation({
     mutationFn: async () => {
-      await apiFetch<ApiResponse<unknown>>("/api/notifications/read-all", {
-        method: "PUT",
-      });
+      const cachedPages = queryClient.getQueriesData<NotificationListResponse>({ queryKey: ["notifications"] });
+      const unreadIds = cachedPages
+        .flatMap(([, page]) => page?.items ?? [])
+        .filter((notification) => notification.id && !notification.isRead)
+        .map((notification) => notification.id!);
+
+      await Promise.all(
+        [...new Set(unreadIds)].map((id) =>
+          apiFetch<ApiResponse<NotificationDto>>(`/api/notifications/${id}/read`, {
+            method: "PUT",
+          }),
+        ),
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });

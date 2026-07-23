@@ -18,6 +18,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { FollowButton } from "@/features/follow-subscriptions/ui/follow-button";
 import { MainLayout } from "@/app/layouts/main-layout";
 import { useResearchPapers, useResearchTopic, type ResearchPaperDto } from "@/features/research/api/research-api";
 import { useAddBookmark, useBookmarks, useRemoveBookmark } from "@/lib/queries";
@@ -121,6 +122,7 @@ function TopicDetail() {
                       `Track publication activity, related papers, journals, citations, and discovery signals around ${topic.name}.`}
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
+                    <FollowButton targetType="ResearchTopic" targetId={topic.id} label="topic" />
                     <Link
                       to="/papers"
                       search={{ q: topic.name ?? "" }}

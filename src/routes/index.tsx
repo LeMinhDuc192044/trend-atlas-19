@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/lib/auth";
+import { Role } from "@/shared/auth/roles";
 import { ThemeToggle } from "@/features/theme/ui/theme-toggle";
 import { Logo } from "@/shared/ui/logo";
 
@@ -109,8 +110,8 @@ const fadeUp = {
 
 function LandingPage() {
   const { user } = useAuth();
-  const primaryTo = user ? "/dashboard" : "/auth";
-  const primaryLabel = user ? "Open dashboard" : "Sign in to start";
+  const primaryTo = user ? (user.role === Role.Admin ? "/dashboard" : "/papers") : "/auth";
+  const primaryLabel = user ? (user.role === Role.Admin ? "Open dashboard" : "Open workspace") : "Sign in to start";
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -142,10 +143,10 @@ function LandingPage() {
             </div>
             {user ? (
               <Link
-                to="/dashboard"
+                to={primaryTo}
                 className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/15 transition hover:bg-primary/90"
               >
-                Open dashboard
+                {primaryLabel}
                 <ArrowRight className="size-4" />
               </Link>
             ) : (

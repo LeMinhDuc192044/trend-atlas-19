@@ -1,4 +1,4 @@
-import { apiClient, unwrapApiResponse } from "@/shared/api/client";
+import { apiClient, apiFetch, unwrapApiResponse, type ApiResponse } from "@/shared/api/client";
 import type { components } from "@/shared/api/schema";
 import { useAuthStore } from "@/features/auth/model/auth-store";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,22 @@ export type JournalListItemDto = components["schemas"]["JournalListItemDto"];
 export type ResearchDomain = components["schemas"]["ResearchDomain"];
 export type ImportSinglePaperResult = components["schemas"]["ImportSinglePaperResult"];
 export type ImportResearchPaperByLinkCommand = components["schemas"]["ImportResearchPaperByLinkCommand"];
+
+type JournalApiPayload = JournalListItemDto & {
+  totalPapersPublished?: number | null;
+};
+
+type JournalListPayload =
+  | JournalApiPayload[]
+  | {
+      items?: JournalApiPayload[] | null;
+      totalPages?: number | null;
+      hasNextPage?: boolean | null;
+    };
+
+type ResearchTopicPayload = ResearchTopicDto & {
+  totalPapersPublished?: number | null;
+};
 
 export type ResearchPaperSearchParams = {
   query?: string;
@@ -70,11 +86,8 @@ export function useResearchTopic(id: string) {
     queryKey: ["research", "topics", id],
     enabled: Boolean(token && id),
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/research-topics/{id}", {
-        params: { path: { id } },
-      });
-      if (error) throw error;
-      return data as ResearchTopicDto;
+      const response = await apiFetch<ApiResponse<ResearchTopicPayload>>(`/api/research-topics/${id}`);
+      return unwrapApiResponse<ResearchTopicPayload>(response);
     },
   });
 }
@@ -131,9 +144,17 @@ export function useJournals() {
     queryKey: ["research", "journals"],
     enabled: Boolean(token),
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/api/journals");
-      if (error) throw error;
-      return unwrapApiResponse<JournalListItemDto[]>(data) ?? [];
+      const firstPage = await fetchJournalPage(1);
+      const journals = [...firstPage.items];
+      const totalPages = firstPage.totalPages ?? (firstPage.hasNextPage ? 2 : 1);
+
+      for (let pageNumber = 2; pageNumber <= totalPages; pageNumber += 1) {
+        const page = await fetchJournalPage(pageNumber);
+        journals.push(...page.items);
+        if (!page.hasNextPage) break;
+      }
+
+      return journals.map(normalizeJournal);
     },
   });
 }
@@ -148,8 +169,57 @@ export function useJournal(id: string) {
       const { data, error } = await apiClient.GET("/api/journals/{id}", {
         params: { path: { id } },
       });
-      if (error) throw error;
-      return unwrapApiResponse<JournalListItemDto>(data);
+      if (!error) {
+        const journal = unwrapApiResponse<JournalApiPayload | null>(data);
+        if (journal) return normalizeJournal(journal);
+      }
+
+      const journalsResponse = await apiFetch<ApiResponse<JournalListPayload>>("/api/journals?pageSize=100");
+      const unwrapped = unwrapApiResponse<JournalListPayload>(journalsResponse);
+      const journals = Array.isArray(unwrapped) ? unwrapped : unwrapped?.items;
+      const fallback = journals?.find((journal) => journal.id === id);
+      if (!fallback) throw error ?? new Error("Journal not found");
+      return normalizeJournal(fallback);
     },
   });
+}
+
+function normalizeJournal(journal: JournalApiPayload | null | undefined): JournalListItemDto {
+  if (!journal) {
+    return {
+      papersCount: 0,
+    };
+  }
+
+  return {
+    ...journal,
+    papersCount: journal.papersCount ?? journal.totalPapersPublished ?? 0,
+  };
+}
+
+async function fetchJournalPage(pageNumber: number) {
+  const { data, error } = await apiClient.GET("/api/journals", {
+    params: {
+      query: {
+        pageNumber,
+        pageSize: 100,
+      },
+    },
+  });
+  if (error) throw error;
+
+  const unwrapped = unwrapApiResponse<JournalListPayload>(data);
+  if (Array.isArray(unwrapped)) {
+    return {
+      items: unwrapped,
+      totalPages: 1,
+      hasNextPage: false,
+    };
+  }
+
+  return {
+    items: unwrapped?.items ?? [],
+    totalPages: unwrapped?.totalPages ?? 1,
+    hasNextPage: Boolean(unwrapped?.hasNextPage),
+  };
 }
