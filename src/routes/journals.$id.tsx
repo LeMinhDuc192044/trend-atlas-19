@@ -1,10 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { useMemo, type ReactNode } from "react";
+import {
+  ArrowLeft,
+  Bookmark,
+  BookmarkCheck,
+  ChevronRight,
+  ExternalLink,
+  FileText,
+  Loader2,
+} from "lucide-react";
 import { MainLayout } from "@/app/layouts/main-layout";
-import { useJournal } from "@/features/research/api/research-api";
+import { useJournal, useResearchPapers } from "@/features/research/api/research-api";
+import { useAddBookmark, useBookmarks, useRemoveBookmark } from "@/lib/queries";
 import { ALL_AUTHENTICATED_ROLES } from "@/shared/auth/roles";
 import { DateDisplay } from "@/shared/ui/custom-date";
+import { MotionItem, MotionStack } from "@/shared/ui/motion";
 
 export const Route = createFileRoute("/journals/$id")({
   head: () => ({ meta: [{ title: "Journal - Scigraph" }] }),
@@ -14,6 +24,24 @@ export const Route = createFileRoute("/journals/$id")({
 function JournalDetail() {
   const { id } = Route.useParams();
   const { data: journal, isLoading, isError, error } = useJournal(id);
+  const { data: papersPage, isLoading: isPapersLoading } = useResearchPapers({
+    journalName: journal?.title ?? undefined,
+    pageSize: 5,
+    enabled: !!journal?.title,
+  });
+
+  const papers = papersPage?.items ?? [];
+
+  const { data: bookmarksData } = useBookmarks();
+  const addBookmark = useAddBookmark();
+  const removeBookmark = useRemoveBookmark();
+  const savedIds = useMemo(
+    () =>
+      new Set(
+        bookmarksData?.items?.map((b) => b.researchPaperId).filter(Boolean) ?? []
+      ),
+    [bookmarksData?.items]
+  );
 
   return (
     <MainLayout roles={ALL_AUTHENTICATED_ROLES}>
@@ -55,6 +83,71 @@ function JournalDetail() {
                 <Metric label="Created" value={<DateDisplay value={journal.createdAt} />} />
                 <Metric label="Updated" value={<DateDisplay value={journal.updatedAt} />} />
               </dl>
+            </section>
+
+            <section className="mt-8">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                    <FileText className="size-3.5 text-brand" />
+                    Recent Papers
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Recently indexed papers from this journal.
+                  </p>
+                </div>
+                
+              </div>
+
+              {isPapersLoading ? (
+                <State label="Loading papers..." />
+              ) : papers.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-surface p-10 text-center text-sm text-muted-foreground">
+                  No papers found for this journal yet.
+                </div>
+              ) : (
+                <MotionStack className="space-y-4">
+                  {papers.map((paper) => {
+                    const paperId = paper.id ?? "";
+                    const saved = savedIds.has(paperId);
+                    const bookmarkId = bookmarksData?.items?.find(
+                      (b) => b.researchPaperId === paperId
+                    )?.id;
+
+                    return (
+                      <MotionItem
+                        key={paperId}
+                        hover
+                        className="group relative rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:border-brand/40"
+                      >
+                        <h2 className="pr-10 text-lg font-semibold leading-snug">
+                          {paper.title || "Untitled paper"}
+                        </h2>
+                        <p className="mt-2 line-clamp-2 text-sm italic text-muted-foreground">
+                          {paper.abstract || "No abstract available."}
+                        </p>
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+                          <span>{paper.authors?.map((a) => a.fullName).join(", ")}</span>
+                          <span>{paper.publicationYear}</span>
+                          <span>{paper.citationCount?.toLocaleString()} citations</span>
+                        </div>
+                        <div className="absolute right-4 top-4 z-20">
+                          <button
+                            onClick={() => {
+                              if (saved) removeBookmark.mutate({ paperId, bookmarkId });
+                              else addBookmark.mutate({ paperId, title: paper.title ?? undefined });
+                            }}
+                            disabled={!paperId || addBookmark.isPending || removeBookmark.isPending}
+                            className={`size-9 border border-border rounded-lg grid place-items-center transition-colors disabled:opacity-50 ${saved ? "bg-secondary text-brand" : "bg-surface hover:bg-secondary"}`}
+                          >
+                            {saved ? <BookmarkCheck className="size-4" /> : <Bookmark className="size-4" />}
+                          </button>
+                        </div>
+                      </MotionItem>
+                    );
+                  })}
+                </MotionStack>
+              )}
             </section>
           </>
         )}
