@@ -4,7 +4,8 @@ import {
   getSummary,
   getPublicationsByYear,
   getTopDomains,
-  getTopJournals
+  getTopJournals,
+  getTopKeywords
 } from "@/api/dashboardApi";
 
 export function useDashboard() {
@@ -14,10 +15,10 @@ export function useDashboard() {
   });
 }
 
-export function usePublicationsByYear() {
+export function usePublicationsByYear({ range }: { range: string }) {
   return useQuery({
-    queryKey: ["dashboard", "publications-by-year"],
-    queryFn: getPublicationsByYear,
+    queryKey: ["dashboard", "publications-by-year", range],
+    queryFn: () => getPublicationsByYear({ range }),
   });
 }
 
@@ -36,8 +37,15 @@ export function useTopJournals() {
 }
 
 export function useDashboardSummary() {
-  return useQuery({
-    queryKey: ["dashboard", "summary"],
-    queryFn: getSummary,
-  });
+    return useQuery({
+        queryKey: ["dashboard","summary"],
+        queryFn: getSummary
+    });
+}
+
+export function useTopKeywords() {
+    return useQuery({
+        queryKey: ["dashboard", "top-keywords"],
+        queryFn: getTopKeywords,
+    });
 }

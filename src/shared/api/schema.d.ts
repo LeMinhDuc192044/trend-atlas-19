@@ -9,6 +9,25 @@
     "/api/research-papers/import-single": {
     post: operations["ResearchPaper_ImportSingle"];
     };
+    "/api/dashboard/summary": {
+    get: operations["Dashboard_GetSummary"];
+    }
+
+    "/api/dashboard/charts/publications-by-year": {
+        get: operations["Dashboard_GetPublicationsByYear"];
+    }
+
+    "/api/dashboard/charts/publications-by-domain": {
+        get: operations["Dashboard_GetPublicationsByDomain"];
+    }
+
+    "/api/dashboard/charts/top-journals": {
+        get: operations["Dashboard_GetTopJournals"];
+    }
+
+    "/api/dashboard/charts/top-keywords": {
+        get: operations["Dashboard_GetTopKeywords"];
+    }
     "/api/auth/register": {
         post: operations["Auth_Register"];
     };
