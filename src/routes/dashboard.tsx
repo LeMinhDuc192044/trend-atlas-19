@@ -14,7 +14,7 @@ import { ArrowUpRight, Bookmark, BookmarkCheck, TrendingUp, Loader2 } from "luci
 import { MainLayout } from "@/app/layouts/main-layout";
 import { papers, publicationTrend, topics, journals } from "@/lib/mock-data";
 import { useBookmarks, useAddBookmark, useRemoveBookmark, useReportSummary, useGenerateReport } from "@/lib/queries";
-import { ALL_AUTHENTICATED_ROLES } from "@/shared/auth/roles";
+import { ADMIN_ONLY } from "@/shared/auth/roles";
 import { CustomDropdown } from "@/shared/ui/custom-dropdown";
 import { MotionItem, MotionPage, MotionStack } from "@/shared/ui/motion";
 
@@ -57,7 +57,7 @@ function Dashboard() {
   const generateReport = useGenerateReport();
 
   return (
-    <MainLayout roles={ALL_AUTHENTICATED_ROLES}>
+    <MainLayout roles={ADMIN_ONLY}>
       <MotionPage className="p-8 max-w-7xl mx-auto w-full">
         <div className="mb-8">
           <h1 className="font-serif text-4xl mb-1">Research Overview</h1>

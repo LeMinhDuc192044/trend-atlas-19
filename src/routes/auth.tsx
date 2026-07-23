@@ -4,6 +4,8 @@ import { Check, Eye, EyeOff } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AuthLayout } from "@/app/layouts/auth-layout";
 import { useAuth } from "@/lib/auth";
+import { Role } from "@/shared/auth/roles";
+import { useAuthStore } from "@/features/auth/model/auth-store";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -30,6 +32,7 @@ function Auth() {
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]> | null>(null);
   const { login, register, loading, user } = useAuth();
   const navigate = useNavigate();
+  const defaultWorkspace = user?.role === Role.Admin ? "/dashboard" : "/papers";
 
   useEffect(() => {
     const rememberedEmail = window.localStorage.getItem("scigraph:remembered-email");
@@ -41,9 +44,9 @@ function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate({ to: "/dashboard", replace: true });
+      navigate({ to: defaultWorkspace, replace: true });
     }
-  }, [navigate, user]);
+  }, [defaultWorkspace, navigate, user]);
 
   useEffect(() => {
     setMode(search.mode as "signin" | "signup");
@@ -66,7 +69,8 @@ function Auth() {
       } else {
         await register(name, email, password);
       }
-      navigate({ to: "/dashboard" });
+      const nextUser = useAuthStore.getState().user;
+      navigate({ to: nextUser?.role === Role.Admin ? "/dashboard" : "/papers" });
     } catch (err: any) {
       setError(err instanceof Error ? err.message : "Authentication failed");
       if (err.validationErrors) {

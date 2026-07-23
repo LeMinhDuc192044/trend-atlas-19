@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ALL_AUTHENTICATED_ROLES },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ADMIN_ONLY },
   { to: "/topics", label: "Trend Explorer", icon: TrendingUp, roles: ALL_AUTHENTICATED_ROLES },
   { to: "/papers", label: "Research Library", icon: BookOpen, roles: ALL_AUTHENTICATED_ROLES },
   { to: "/journals", label: "Journal Tracker", icon: Newspaper, roles: ALL_AUTHENTICATED_ROLES },
