@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { FollowButton } from "@/features/follow-subscriptions/ui/follow-button";
 import { MainLayout } from "@/app/layouts/main-layout";
 import { useJournal } from "@/features/research/api/research-api";
 import { ALL_AUTHENTICATED_ROLES } from "@/shared/auth/roles";
@@ -41,10 +42,15 @@ function JournalDetail() {
                 </div>
               </div>
               {journal.website ? (
-                <a href={journal.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
-                  Website <ExternalLink className="size-3.5" />
-                </a>
-              ) : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <FollowButton targetType="Journal" targetId={journal.id} label="journal" />
+                  <a href={journal.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-secondary">
+                    Website <ExternalLink className="size-3.5" />
+                  </a>
+                </div>
+              ) : (
+                <FollowButton targetType="Journal" targetId={journal.id} label="journal" />
+              )}
             </div>
 
             <section className="bg-surface border border-border rounded-2xl p-8">

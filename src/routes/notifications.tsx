@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { MainLayout } from "@/app/layouts/main-layout";
 import {
   useMarkAllNotificationsAsRead,
@@ -25,7 +25,7 @@ function Notifications() {
   const markAsRead = useMarkNotificationAsRead();
   const markAllAsRead = useMarkAllNotificationsAsRead();
   const notifications = data?.items ?? [];
-  const unreadCount = data?.unreadCount ?? 0;
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
   return (
     <MainLayout roles={ALL_AUTHENTICATED_ROLES}>
@@ -98,6 +98,35 @@ function NotificationCard({
           <div className="min-w-0">
             <h3 className="font-semibold text-sm">{notification.title || "Notification"}</h3>
             <p className="text-sm text-muted-foreground mt-1">{notification.message || "No message provided."}</p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              {notification.relatedPaperId && notification.relatedPaperTitle ? (
+                <Link
+                  to="/papers/$id"
+                  params={{ id: notification.relatedPaperId }}
+                  className="rounded-full border border-border px-2.5 py-1 font-medium text-brand hover:bg-secondary"
+                >
+                  Paper: {notification.relatedPaperTitle}
+                </Link>
+              ) : null}
+              {notification.relatedJournalId && notification.relatedJournalTitle ? (
+                <Link
+                  to="/journals/$id"
+                  params={{ id: notification.relatedJournalId }}
+                  className="rounded-full border border-border px-2.5 py-1 font-medium text-brand hover:bg-secondary"
+                >
+                  Journal: {notification.relatedJournalTitle}
+                </Link>
+              ) : null}
+              {notification.relatedResearchTopicId && notification.relatedResearchTopicName ? (
+                <Link
+                  to="/topics/$id"
+                  params={{ id: notification.relatedResearchTopicId }}
+                  className="rounded-full border border-border px-2.5 py-1 font-medium text-brand hover:bg-secondary"
+                >
+                  Topic: {notification.relatedResearchTopicName}
+                </Link>
+              ) : null}
+            </div>
           </div>
           <span className="shrink-0 font-mono text-[10px] uppercase text-muted-foreground">
             <DateDisplay value={notification.createdAt} />
