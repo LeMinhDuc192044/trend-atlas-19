@@ -4,6 +4,7 @@ import {
   Bookmark,
   BookmarkCheck,
   FileText,
+  Import,
   Loader2,
 } from "lucide-react";
 import { MainLayout } from "@/app/layouts/main-layout";
@@ -16,6 +17,7 @@ import { FilterSelect } from "@/shared/ui/filter-select";
 import { MotionItem, MotionPage, MotionStack } from "@/shared/ui/motion";
 import { Pagination } from "@/shared/ui/pagination";
 import { SearchInput } from "@/shared/ui/search-input";
+import { ImportDialog } from "./import";
 
 export const Route = createFileRoute("/papers/")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -47,6 +49,7 @@ function PapersList() {
   const [toDate, setToDate] = useState("");
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
+  const [showImport, setShowImport] = useState(false);
 
   const papersQuery = useResearchPapers({
     query,
@@ -87,15 +90,21 @@ function PapersList() {
   return (
     <MainLayout roles={ALL_AUTHENTICATED_ROLES}>
       <MotionPage className="p-6 lg:p-8 max-w-7xl mx-auto">
-        <div className="mb-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted-foreground">
-            <FileText className="size-3.5 text-brand" />
-            Live papers from backend
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted-foreground">
+              <FileText className="size-3.5 text-brand" />
+              Live papers from backend
+            </div>
+            <h1 className="font-serif text-4xl mt-4 mb-1">Research Library</h1>
+            <p className="text-muted-foreground text-sm">
+              {totalItems.toLocaleString()} papers matching your current query.
+            </p>
           </div>
-          <h1 className="font-serif text-4xl mt-4 mb-1">Research Library</h1>
-          <p className="text-muted-foreground text-sm">
-            {totalItems.toLocaleString()} papers matching your current query.
-          </p>
+          <button onClick={() => setShowImport(true)} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+            <Import className="size-4" />
+            Import paper
+          </button>
         </div>
 
         <MotionItem className="mb-5 rounded-2xl border border-border bg-surface p-4">
@@ -256,6 +265,7 @@ function PapersList() {
             />
           </>
         )}
+        {showImport && <ImportDialog onClose={() => setShowImport(false)} />}
       </MotionPage>
     </MainLayout>
   );

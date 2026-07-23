@@ -10,6 +10,8 @@ import {
   type ImportPapersRequest,
   type ImportSinglePaperRequest,
 } from "@/api/researchPaperApi";
+import { apiClient } from "@/shared/api/client";
+
 
 // ── Query keys ────────────────────────────────────────────────────────────────
 
@@ -60,13 +62,63 @@ export function useImportPapers() {
   });
 }
 
-/** POST /research-papers/import-single — import one paper by DOI/link */
+
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface ImportByLinkRequest {
+  link: string;            // DOI URL or raw DOI, e.g. "https://doi.org/10.xxx"
+  apiSource: string;       // "semanticscholar" | "openalex" | "crossref"
+  researchTopicIds: string[]; // UUIDs — empty array to import without linking
+}
+
+export interface ImportSinglePaperResult {
+  paperId: string;
+  title: string;
+  citationCount: number;
+  journalName: string | null;
+  authorNames: string[];
+  linkedTopicNames: string[];
+}
+
+// ── API call ──────────────────────────────────────────────────────────────────
+
+async function importPaperByLink(
+  request: ImportByLinkRequest
+): Promise<ImportSinglePaperResult> {
+  const { data, error } = await apiClient.POST("/api/research-papers/import-single", {
+    body: request as any,
+  });
+
+  if (error) {
+    const msg =
+      (error as any)?.message ??
+      (error as any)?.title ??
+      "Import failed";
+    throw new Error(msg);
+  }
+
+  return data as ImportSinglePaperResult;
+}
+
+// ── Hook ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Import a single research paper by DOI / URL link.
+ * On success, invalidates the papers list so the new paper appears automatically.
+ *
+ * Usage:
+ *   const importPaper = useImportSinglePaper();
+ *   importPaper.mutateAsync({ link, apiSource, researchTopicIds });
+ */
 export function useImportSinglePaper() {
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: (request: ImportSinglePaperRequest) => importSinglePaper(request),
+    mutationFn: importPaperByLink,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: paperKeys.lists() });
+      // Refresh the papers list so the newly imported paper shows up
+      queryClient.invalidateQueries({ queryKey: ["research", "papers"] });
     },
   });
 }
