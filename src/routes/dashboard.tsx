@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import {
   useDashboardSummary,
   usePublicationsByYear,
@@ -16,15 +16,29 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-} from "recharts"; // Assuming you have recharts installed
-import { ArrowUpRight, Bookmark, BookmarkCheck, Loader2, TrendingUp } from "lucide-react";
+} from "recharts";
+import { ArrowUpRight, Bookmark, BookmarkCheck, Loader2 } from "lucide-react";
 import { MainLayout } from "@/app/layouts/main-layout";
 import { useBookmarks, useAddBookmark, useRemoveBookmark, useReportSummary, useGenerateReport } from "@/lib/queries";
-import { ALL_AUTHENTICATED_ROLES } from "@/shared/auth/roles";
+import { ALL_AUTHENTICATED_ROLES, ADVANCED_RESEARCH_ROLES, hasAnyRole } from "@/shared/auth/roles";
 import { CustomDropdown } from "@/shared/ui/custom-dropdown";
 import { MotionItem, MotionPage, MotionStack } from "@/shared/ui/motion";
+import { useAuthStore } from "@/features/auth/model/auth-store";
+import { getToken } from "@/lib/api-client";
 
 export const Route = createFileRoute("/dashboard")({
+  beforeLoad: () => {
+    // 1. Must be logged in
+    if (!getToken()) throw redirect({ to: "/auth", search: { mode: "signin" } });
+
+    // 2. Same technique as the landing page uses for hiding admin UI —
+    //    check role from the store's state (no hooks needed outside components).
+    //    User role (1) is NOT in ADVANCED_RESEARCH_ROLES, so they get redirected.
+    const user = useAuthStore.getState().user;
+    if (!hasAnyRole(user?.role, ADVANCED_RESEARCH_ROLES)) {
+      throw redirect({ to: "/papers", search: { q: "" } });
+    }
+  },
   head: () => ({
     meta: [
       { title: "Dashboard — Scigraph" },
@@ -58,7 +72,6 @@ function StatCard({
   );
 }
 
-// Define a type for the recent paper object to fix implicit 'any' error
 type RecentPaper = {
   id?: string;
   domain?: string;
@@ -70,30 +83,13 @@ type RecentPaper = {
   citationCount?: number;
 };
 
-type TrendingTopic = {
-  id?: string;
-  topicName?: string;
-  growth?: number;
-};
-
-type TopJournal = {
-  id?: string;
-  title?: string;
-  papersCount?: number;
-  impactFactor?: number;
-};
-
 function Dashboard() {
   const [trendRange, setTrendRange] = useState("12-months");
 
-  // Data fetching hooks
   const { data: summary } = useDashboardSummary();
   const { data: publicationsByYear } = usePublicationsByYear({ range: trendRange });
-  const { data: topKeywords } = useTopKeywords();
-  const { data: topDomains } = useTopDomains();
   const { data: topJournals } = useTopJournals();
 
-  // Derived data for charts and lists
   const recentPapers: RecentPaper[] = summary?.recentPapers ?? [];
   const journals: { label: string; value: number }[] = topJournals?.dataPoints ?? [];
   const publicationTrend = useMemo(() => publicationsByYear?.dataPoints ?? [], [publicationsByYear]);
@@ -110,7 +106,7 @@ function Dashboard() {
   const generateReport = useGenerateReport();
 
   return (
-    <MainLayout roles={ALL_AUTHENTICATED_ROLES}>
+    <MainLayout roles={ADVANCED_RESEARCH_ROLES}>
       <MotionPage className="p-8 max-w-7xl mx-auto w-full">
         <div className="mb-8">
           <h1 className="font-serif text-4xl mb-1">Research Overview</h1>
@@ -150,18 +146,12 @@ function Dashboard() {
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="label" stroke="var(--muted-foreground)" fontSize={11} />
                       <YAxis stroke="var(--muted-foreground)" fontSize={11} />
-                      <Tooltip
-                        contentStyle={{
-                          background: "var(--surface)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 8,
-                          fontSize: 12,
-                        }}
-                      />
+                      <Tooltip contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
                       <Legend wrapperStyle={{ fontSize: 11 }} />
                       {Object.keys(publicationTrend[0] ?? {}).map(
-                        (key) =>
-                          key !== "label" && <Area key={key} type="monotone" dataKey={key} name={key} strokeWidth={2} />,
+                        (key) => key !== "label" && (
+                          <Area key={key} type="monotone" dataKey={key} name={key} strokeWidth={2} />
+                        ),
                       )}
                     </AreaChart>
                   </ResponsiveContainer>
@@ -178,21 +168,13 @@ function Dashboard() {
               </div>
               <MotionStack className="space-y-4">
                 {recentPapers.map((p) => (
-                  <MotionItem
-                    key={p.id}
-                    hover
-                    className="bg-surface border border-border rounded-2xl p-6 hover:shadow-md transition-shadow"
-                  >
+                  <MotionItem key={p.id} hover className="bg-surface border border-border rounded-2xl p-6 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start mb-3">
-                      <span className="px-2 py-0.5 bg-accent text-indigo text-[10px] font-bold uppercase tracking-wider rounded">
-                        {p.domain}
-                      </span>
+                      <span className="px-2 py-0.5 bg-accent text-indigo text-[10px] font-bold uppercase tracking-wider rounded">{p.domain}</span>
                       <span className="text-xs font-mono text-muted-foreground">{p.doi ? `DOI: ${p.doi}` : ""}</span>
                     </div>
                     <Link to="/papers/$id" params={{ id: p.id ?? "" }} className="block">
-                      <h3 className="text-lg font-semibold leading-snug mb-2 hover:text-brand transition-colors">
-                        {p.title}
-                      </h3>
+                      <h3 className="text-lg font-semibold leading-snug mb-2 hover:text-brand transition-colors">{p.title}</h3>
                     </Link>
                     <p className="text-muted-foreground text-sm line-clamp-2 mb-4 italic">{p.abstract}</p>
                     <div className="flex items-center justify-between">
@@ -212,21 +194,11 @@ function Dashboard() {
                             }
                           }}
                           disabled={addBookmark.isPending || removeBookmark.isPending}
-                          className={`size-8 border border-border rounded-lg grid place-items-center transition-colors disabled:opacity-50 ${
-                            p.id && savedIds.has(p.id) ? "bg-secondary text-brand" : "hover:bg-secondary"
-                          }`}
+                          className={`size-8 border border-border rounded-lg grid place-items-center transition-colors disabled:opacity-50 ${p.id && savedIds.has(p.id) ? "bg-secondary text-brand" : "hover:bg-secondary"}`}
                         >
-                          {p.id && savedIds.has(p.id) ? (
-                            <BookmarkCheck className="size-3.5" />
-                          ) : (
-                            <Bookmark className="size-3.5" />
-                          )}
+                          {p.id && savedIds.has(p.id) ? <BookmarkCheck className="size-3.5" /> : <Bookmark className="size-3.5" />}
                         </button>
-                        <Link
-                          to="/papers/$id"
-                          params={{ id: p.id ?? "" }}
-                          className="px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:opacity-90"
-                        >
+                        <Link to="/papers/$id" params={{ id: p.id ?? "" }} className="px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:opacity-90">
                           Read
                         </Link>
                       </div>
@@ -237,18 +209,16 @@ function Dashboard() {
             </section>
           </div>
 
-          {/* Right column */}
           <div className="space-y-8">
             <section className="bg-indigo rounded-2xl p-6 text-indigo-foreground relative">
-              {reportLoading ? (
+              {reportLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-indigo/50 rounded-2xl z-10 backdrop-blur-sm">
                   <Loader2 className="size-6 animate-spin text-indigo-foreground" />
                 </div>
-              ) : null}
+              )}
               <h2 className="text-lg font-serif mb-2">{report?.title || "Weekly Insight Report"}</h2>
               <p className="text-indigo-foreground/80 text-xs leading-relaxed mb-4 line-clamp-3">
-                {report?.description ||
-                  "Academic output in Reinforcement Learning has shifted from gaming environments to physical robotics control systems this quarter."}
+                {report?.description || "Academic output in Reinforcement Learning has shifted from gaming environments to physical robotics control systems this quarter."}
               </p>
               <div className="space-y-2">
                 <div className="h-1 bg-indigo-foreground/20 rounded-full overflow-hidden">
@@ -273,20 +243,11 @@ function Dashboard() {
               <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Journal Activity</h2>
               <div className="space-y-3">
                 {journals.map((j, index) => (
-                  <Link
-                    key={`${j.label}-${index}`}
-                    to="/papers"
-                    search={{ q: `"${j.label}"` }}
-                    className="flex items-center gap-3 p-3 bg-surface border border-border rounded-xl hover:shadow-sm transition-shadow"
-                  >
-                    <div className="size-10 rounded bg-secondary grid place-items-center font-serif text-lg">
-                      {j.label?.[0]}
-                    </div>
+                  <Link key={`${j.label}-${index}`} to="/papers" search={{ q: `"${j.label}"` }} className="flex items-center gap-3 p-3 bg-surface border border-border rounded-xl hover:shadow-sm transition-shadow">
+                    <div className="size-10 rounded bg-secondary grid place-items-center font-serif text-lg">{j.label?.[0]}</div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold truncate">{j.label}</div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {j.value.toLocaleString()} papers
-                      </div>
+                      <div className="text-[10px] text-muted-foreground">{j.value.toLocaleString()} papers</div>
                     </div>
                     <ArrowUpRight className="size-4 text-muted-foreground" />
                   </Link>

@@ -1,16 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-  Bookmark,
-  BookmarkCheck,
-  FileText,
-  Import,
-  Loader2,
-} from "lucide-react";
+import { Bookmark, BookmarkCheck, FileText, Import, Loader2 } from "lucide-react";
 import { MainLayout } from "@/app/layouts/main-layout";
 import { useJournals, useResearchPapers, type ResearchDomain } from "@/features/research/api/research-api";
 import { useAddBookmark, useBookmarks, useRemoveBookmark } from "@/lib/queries";
-import { ALL_AUTHENTICATED_ROLES } from "@/shared/auth/roles";
+import { ALL_AUTHENTICATED_ROLES, ADVANCED_RESEARCH_ROLES, hasAnyRole } from "@/shared/auth/roles";
+import { useAuth } from "@/lib/auth";
 import { formatDomain } from "@/shared/lib/format-domain";
 import { DatePicker } from "@/shared/ui/custom-date";
 import { FilterSelect } from "@/shared/ui/filter-select";
@@ -51,6 +46,10 @@ function PapersList() {
   const [page, setPage] = useState(1);
   const [showImport, setShowImport] = useState(false);
 
+  // Same technique as the landing page uses — read user from auth, check role
+  const { user } = useAuth();
+  const canImport = hasAnyRole(user?.role, ADVANCED_RESEARCH_ROLES); // Admin + Researcher only
+
   const papersQuery = useResearchPapers({
     query,
     authorName: author,
@@ -62,10 +61,12 @@ function PapersList() {
     pageNumber: page,
     pageSize,
   });
+
   const { data: journalsResponse } = useJournals();
   const journals: Array<{ title?: string | null }> = Array.isArray(journalsResponse)
     ? journalsResponse
     : (journalsResponse as any)?.items ?? [];
+
   const { data: bookmarksData } = useBookmarks();
   const addBookmark = useAddBookmark();
   const removeBookmark = useRemoveBookmark();
@@ -101,82 +102,46 @@ function PapersList() {
               {totalItems.toLocaleString()} papers matching your current query.
             </p>
           </div>
-          <button onClick={() => setShowImport(true)} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
-            <Import className="size-4" />
-            Import paper
-          </button>
+
+          {/* Import button — only visible to Admin and Researcher, hidden for User */}
+          {canImport && (
+            <button
+              onClick={() => setShowImport(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              <Import className="size-4" />
+              Import paper
+            </button>
+          )}
         </div>
 
         <MotionItem className="mb-5 rounded-2xl border border-border bg-surface p-4">
           <div className="grid gap-3 lg:grid-cols-[minmax(260px,1.2fr)_minmax(160px,0.8fr)_minmax(160px,0.8fr)]">
-            <SearchInput
-              value={query}
-              onChange={(value) => {
-                setQuery(value);
-                resetPage();
-              }}
-              placeholder="Search title or abstract..."
-            />
-            <SearchInput
-              value={author}
-              onChange={(value) => {
-                setAuthor(value);
-                resetPage();
-              }}
-              placeholder="Author name..."
-            />
-            <SearchInput
-              value={topic}
-              onChange={(value) => {
-                setTopic(value);
-                resetPage();
-              }}
-              placeholder="Topic name..."
-            />
+            <SearchInput value={query} onChange={(value) => { setQuery(value); resetPage(); }} placeholder="Search title or abstract..." />
+            <SearchInput value={author} onChange={(value) => { setAuthor(value); resetPage(); }} placeholder="Author name..." />
+            <SearchInput value={topic} onChange={(value) => { setTopic(value); resetPage(); }} placeholder="Topic name..." />
           </div>
           <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(220px,1fr)_190px_180px_180px]">
             <FilterSelect
               label="Journal"
               value={journalName}
-              onChange={(value) => {
-                setJournalName(value);
-                resetPage();
-              }}
+              onChange={(value) => { setJournalName(value); resetPage(); }}
               options={[
                 { label: "All journals", value: "all" },
-                ...journals
-                  .filter((journal) => journal.title)
-                  .map((journal) => ({ label: journal.title ?? "", value: journal.title ?? "" })),
+                ...journals.filter((j) => j.title).map((j) => ({ label: j.title ?? "", value: j.title ?? "" })),
               ]}
             />
             <FilterSelect
               label="Domain"
               value={String(domain)}
-              onChange={(value) => {
-                setDomain(value === "all" ? "all" : (value as ResearchDomain));
-                resetPage();
-              }}
+              onChange={(value) => { setDomain(value === "all" ? "all" : (value as ResearchDomain)); resetPage(); }}
               options={[
                 { label: "All domains", value: "all" },
-                ...domainOptions.map((item) => ({ label: item.label, value: String(item.value) })),
+                ...domainOptions.map((d) => ({ label: d.label, value: String(d.value) })),
               ]}
             />
-            <DatePicker
-              value={fromDate}
-              onChange={(value) => {
-                setFromDate(value);
-                resetPage();
-              }}
-              placeholder="From date"
-            />
-            <DatePicker
-              value={toDate}
-              onChange={(value) => {
-                setToDate(value);
-                resetPage();
-              }}
-              placeholder="To date"
-            />
+            <DatePicker value={fromDate} onChange={(value) => { setFromDate(value); resetPage(); }} placeholder="From date" />
+            <DatePicker value={toDate} onChange={(value) => { setToDate(value); resetPage(); }} placeholder="To date" />
           </div>
         </MotionItem>
 
@@ -192,14 +157,10 @@ function PapersList() {
               {papers.map((paper) => {
                 const paperId = paper.id ?? "";
                 const saved = savedIds.has(paperId);
-                const bookmarkId = bookmarksData?.items?.find((bookmark) => bookmark.researchPaperId === paperId)?.id;
+                const bookmarkId = bookmarksData?.items?.find((b) => b.researchPaperId === paperId)?.id;
 
                 return (
-                  <MotionItem
-                    key={paperId}
-                    hover
-                    className="group relative rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:border-brand/40"
-                  >
+                  <MotionItem key={paperId} hover className="group relative rounded-2xl border border-border bg-surface p-5 shadow-sm transition hover:border-brand/40">
                     <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                       <div className="flex flex-wrap gap-2">
                         <Badge>{formatDomain(paper.domain)}</Badge>
@@ -208,19 +169,15 @@ function PapersList() {
                       </div>
                       <span className="font-mono text-xs text-muted-foreground">{paper.doi ? `DOI: ${paper.doi}` : "No DOI"}</span>
                     </div>
-
                     <h2 className="text-lg font-semibold leading-snug transition group-hover:text-brand">
                       <Link to="/papers/$id" params={{ id: paperId }} className="after:absolute after:inset-0 after:z-10">
                         {paper.title || "Untitled paper"}
                       </Link>
                     </h2>
-                    <p className="mt-2 line-clamp-2 text-sm italic text-muted-foreground">
-                      {paper.abstract || "No abstract available."}
-                    </p>
-
+                    <p className="mt-2 line-clamp-2 text-sm italic text-muted-foreground">{paper.abstract || "No abstract available."}</p>
                     <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                       <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                        <span>{paper.authors?.map((item) => item.fullName).filter(Boolean).join(", ") || "Unknown authors"}</span>
+                        <span>{paper.authors?.map((a) => a.fullName).filter(Boolean).join(", ") || "Unknown authors"}</span>
                         <span>{paper.journal?.title || "Unassigned journal"}</span>
                         <span>{paper.publicationYear ?? "-"}</span>
                         <span>{(paper.citationCount ?? 0).toLocaleString()} citations</span>
@@ -228,11 +185,8 @@ function PapersList() {
                       <div className="flex shrink-0 gap-2">
                         <button
                           onClick={() => {
-                            if (saved) {
-                              removeBookmark.mutate({ paperId, bookmarkId });
-                            } else {
-                              addBookmark.mutate({ paperId, title: paper.title ?? undefined });
-                            }
+                            if (saved) removeBookmark.mutate({ paperId, bookmarkId });
+                            else addBookmark.mutate({ paperId, title: paper.title ?? undefined });
                           }}
                           disabled={!paperId || addBookmark.isPending || removeBookmark.isPending}
                           className={`relative z-20 size-9 border border-border rounded-lg grid place-items-center transition-colors disabled:opacity-50 ${saved ? "bg-secondary text-brand" : "hover:bg-secondary"}`}
@@ -257,14 +211,12 @@ function PapersList() {
               visibleEnd={visibleEnd}
               totalItems={totalItems}
               onPageChange={setPage}
-              onPageSizeChange={(value) => {
-                setPageSize(value);
-                setPage(1);
-              }}
+              onPageSizeChange={(value) => { setPageSize(value); setPage(1); }}
               className="mt-4 rounded-2xl border border-border bg-surface px-4 py-3"
             />
           </>
         )}
+
         {showImport && <ImportDialog onClose={() => setShowImport(false)} />}
       </MotionPage>
     </MainLayout>
@@ -274,29 +226,15 @@ function PapersList() {
 function Badge({ children }: { children: ReactNode }) {
   return <span className="rounded-full bg-secondary px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{children}</span>;
 }
-
 function LoadingState({ label }: { label: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-surface p-10 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-      <Loader2 className="size-4 animate-spin" />
-      {label}
-    </div>
-  );
+  return <div className="rounded-2xl border border-border bg-surface p-10 flex items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />{label}</div>;
 }
-
 function ErrorState({ message }: { message: string }) {
   return <div className="rounded-2xl border border-border bg-surface p-10 text-sm text-destructive">Failed to load papers: {message}</div>;
 }
-
 function EmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-surface p-12 text-center">
-      <p className="font-semibold">{title}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </div>
-  );
+  return <div className="rounded-2xl border border-border bg-surface p-12 text-center"><p className="font-semibold">{title}</p><p className="mt-1 text-sm text-muted-foreground">{description}</p></div>;
 }
-
 function getYear(value: string) {
   if (!value) return undefined;
   const year = new Date(value).getFullYear();
